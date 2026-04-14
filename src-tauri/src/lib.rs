@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use tauri::{AppHandle, Manager, State, WebviewWindow};
+use tauri::{AppHandle, State, WebviewWindow};
 
 mod claude;
 mod config;
@@ -30,10 +30,13 @@ pub fn run() {
             tracing::info!("glassforge starting up");
             #[cfg(debug_assertions)]
             {
+                use tauri::Manager;
                 if let Some(window) = app.get_webview_window("main") {
                     window.open_devtools();
                 }
             }
+            #[cfg(not(debug_assertions))]
+            let _ = app;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
