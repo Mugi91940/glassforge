@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { BarChart3, Plus, Sparkles, Terminal } from "lucide-react";
+import { useEffect, useState } from "react";
+import { BarChart3, Clock, Plus, Sparkles, Terminal, X } from "lucide-react";
 
 import * as log from "@/lib/log";
 import { createSession } from "@/lib/tauri-commands";
+import { useProjectHistoryStore } from "@/stores/projectHistoryStore";
 import { useSessionStore } from "@/stores/sessionStore";
 
 import { SessionCard } from "@/components/sessions/SessionCard";
@@ -20,24 +21,34 @@ export function Sidebar() {
   const setActive = useSessionStore((s) => s.setActive);
   const addSession = useSessionStore((s) => s.addSession);
 
+  const history = useProjectHistoryStore((s) => s.projects);
+  const historyLoad = useProjectHistoryStore((s) => s.load);
+  const historyTouch = useProjectHistoryStore((s) => s.touch);
+  const historyRemove = useProjectHistoryStore((s) => s.remove);
+  const historyClear = useProjectHistoryStore((s) => s.clear);
+
   const [tab, setTab] = useState<Tab>("sessions");
   const [projectPath, setProjectPath] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  async function onNew() {
-    const path = projectPath.trim();
-    if (!path) {
+  useEffect(() => {
+    void historyLoad();
+  }, [historyLoad]);
+
+  async function spawnSession(path: string) {
+    const trimmed = path.trim();
+    if (!trimmed) {
       setErr("Enter a project path first");
       return;
     }
     setErr(null);
     setBusy(true);
     try {
-      // Model is picked on-the-fly from the ChatView header.
-      const info = await createSession(path, null);
+      const info = await createSession(trimmed, null);
       addSession(info);
       setActive(info.id);
+      void historyTouch(trimmed);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setErr(msg);
@@ -45,6 +56,10 @@ export function Sidebar() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function onNew() {
+    await spawnSession(projectPath);
   }
 
   return (
@@ -74,6 +89,56 @@ export function Sidebar() {
         </button>
         {err ? <p className={styles.error}>{err}</p> : null}
       </div>
+
+      {history.length > 0 ? (
+        <div className={styles.history}>
+          <div className={styles.historyHeader}>
+            <Clock size={10} />
+            <span>Recent projects</span>
+            <button
+              type="button"
+              className={styles.historyClear}
+              onClick={() => void historyClear()}
+              aria-label="Clear history"
+            >
+              clear
+            </button>
+          </div>
+          <ul className={styles.historyList}>
+            {history.map((p) => {
+              const name =
+                p.path.split("/").filter(Boolean).pop() ?? p.path;
+              return (
+                <li key={p.path} className={styles.historyItem}>
+                  <button
+                    type="button"
+                    className={styles.historyButton}
+                    onClick={() => {
+                      setProjectPath(p.path);
+                      void spawnSession(p.path);
+                    }}
+                    title={p.path}
+                  >
+                    <span className={styles.historyName}>{name}</span>
+                    <span className={styles.historyPath}>{p.path}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.historyRemove}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void historyRemove(p.path);
+                    }}
+                    aria-label={`Remove ${name}`}
+                  >
+                    <X size={10} />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
 
       <div className={styles.tabs}>
         <button

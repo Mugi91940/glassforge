@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { Minus, Settings, Square, X } from "lucide-react";
+import { Minus, Settings, X } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useState } from "react";
 
 import styles from "./TopBar.module.css";
 
@@ -10,20 +10,6 @@ type TopBarProps = {
 
 export function TopBar({ onOpenSettings }: TopBarProps) {
   const [win] = useState(() => getCurrentWindow());
-  const [maximized, setMaximized] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-    win.isMaximized().then((v) => mounted && setMaximized(v));
-    const unlisten = win.onResized(async () => {
-      const v = await win.isMaximized();
-      if (mounted) setMaximized(v);
-    });
-    return () => {
-      mounted = false;
-      unlisten.then((fn) => fn());
-    };
-  }, [win]);
 
   return (
     <header className={styles.root} data-tauri-drag-region>
@@ -50,14 +36,6 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
           type="button"
         >
           <Minus size={14} />
-        </button>
-        <button
-          className={styles.controlButton}
-          aria-label={maximized ? "Restore" : "Maximize"}
-          onClick={() => win.toggleMaximize()}
-          type="button"
-        >
-          <Square size={12} />
         </button>
         <button
           className={`${styles.controlButton} ${styles.closeButton}`}

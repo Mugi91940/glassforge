@@ -62,6 +62,43 @@ export async function getClaudeUsage(): Promise<ClaudeUsageSnapshot> {
   return invoke<ClaudeUsageSnapshot>("get_claude_usage");
 }
 
+export type RateLimitBucket = {
+  usedPercentage: number;
+  resetsAt: string | null;
+};
+
+export type RateLimits = {
+  fiveHour: RateLimitBucket | null;
+  sevenDay: RateLimitBucket | null;
+  capturedAtIso: string | null;
+  staleSeconds: number;
+};
+
+export type UsageHookStatus = {
+  installed: boolean;
+  scriptPath: string | null;
+  cachePath: string | null;
+  lastCapturedIso: string | null;
+  lastCapturedAgeSecs: number | null;
+  settingsPath: string | null;
+};
+
+export async function getRateLimits(): Promise<RateLimits | null> {
+  return invoke<RateLimits | null>("get_rate_limits");
+}
+
+export async function getUsageHookStatus(): Promise<UsageHookStatus> {
+  return invoke<UsageHookStatus>("get_usage_hook_status");
+}
+
+export async function installUsageHook(): Promise<UsageHookStatus> {
+  return invoke<UsageHookStatus>("install_usage_hook");
+}
+
+export async function uninstallUsageHook(): Promise<UsageHookStatus> {
+  return invoke<UsageHookStatus>("uninstall_usage_hook");
+}
+
 export async function setKdeBlur(enabled: boolean): Promise<void> {
   return invoke<void>("set_kde_blur", { enabled });
 }

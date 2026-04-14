@@ -10,9 +10,11 @@
 //! touch those files.
 
 use std::fs;
+use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
+use std::time::{Duration as StdDuration, SystemTime};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, Duration, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -242,6 +244,293 @@ fn normalize_model(raw: &str) -> String {
     } else {
         raw.to_string()
     }
+}
+
+// ── Real-time rate limits via Claude Code's statusLine hook ───────────
+//
+// Claude Code pipes a full JSON status object into a user-configured
+// `statusLine.command` every few seconds during an interactive session.
+// That object contains a `rate_limits` key with the same data the
+// `/usage` slash command displays. We install a tiny shell script as the
+// statusLine command; it copies the JSON to a cache file and echoes an
+// empty line (so claude's status bar stays out of the way).
+//
+// GlassForge then reads the cache file to display the real percentages
+// without needing to reverse-engineer Anthropic's private API.
+//
+// Install / uninstall are explicit user actions. The previous
+// `~/.claude/settings.json` is always backed up before we touch it.
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RateLimitBucket {
+    pub used_percentage: f64,
+    pub resets_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RateLimits {
+    pub five_hour: Option<RateLimitBucket>,
+    pub seven_day: Option<RateLimitBucket>,
+    pub captured_at_iso: Option<String>,
+    pub stale_seconds: u64,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HookStatus {
+    pub installed: bool,
+    pub script_path: Option<String>,
+    pub cache_path: Option<String>,
+    pub last_captured_iso: Option<String>,
+    pub last_captured_age_secs: Option<u64>,
+    pub settings_path: Option<String>,
+}
+
+fn claude_dir() -> Option<PathBuf> {
+    home_dir().map(|h| h.join(".claude"))
+}
+
+fn settings_path() -> Option<PathBuf> {
+    claude_dir().map(|d| d.join("settings.json"))
+}
+
+fn settings_backup_path() -> Option<PathBuf> {
+    claude_dir().map(|d| d.join("settings.json.glassforge-backup"))
+}
+
+fn tap_script_path() -> Option<PathBuf> {
+    home_dir().map(|h| {
+        h.join(".local")
+            .join("share")
+            .join("glassforge")
+            .join("usage-tap.sh")
+    })
+}
+
+fn tap_cache_path() -> Option<PathBuf> {
+    home_dir().map(|h| h.join(".cache").join("glassforge").join("usage.json"))
+}
+
+fn write_tap_script() -> Result<PathBuf> {
+    let script = tap_script_path().ok_or_else(|| anyhow!("HOME unset"))?;
+    let cache = tap_cache_path().ok_or_else(|| anyhow!("HOME unset"))?;
+
+    if let Some(parent) = script.parent() {
+        fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
+    }
+    if let Some(parent) = cache.parent() {
+        fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
+    }
+
+    let body = format!(
+        "#!/bin/sh\n\
+# GlassForge usage tap — captures rate_limits from the claude statusLine.\n\
+# Writes the full JSON payload to a cache file and emits an empty status\n\
+# line so claude's status bar stays out of the way.\n\
+set -eu\n\
+out={cache}\n\
+mkdir -p \"$(dirname \"$out\")\"\n\
+tee \"$out\" >/dev/null\n\
+printf ''\n",
+        cache = shell_quote(&cache.to_string_lossy())
+    );
+    fs::write(&script, body.as_bytes()).with_context(|| format!("write {}", script.display()))?;
+    let mut perms = fs::metadata(&script)?.permissions();
+    perms.set_mode(0o755);
+    fs::set_permissions(&script, perms)?;
+    Ok(script)
+}
+
+fn shell_quote(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('\'');
+    for ch in s.chars() {
+        if ch == '\'' {
+            out.push_str("'\\''");
+        } else {
+            out.push(ch);
+        }
+    }
+    out.push('\'');
+    out
+}
+
+fn read_settings() -> Result<(PathBuf, Value)> {
+    let path = settings_path().ok_or_else(|| anyhow!("HOME unset"))?;
+    let content = match fs::read_to_string(&path) {
+        Ok(c) => c,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => "{}".to_string(),
+        Err(e) => return Err(anyhow!("read {}: {e}", path.display())),
+    };
+    let json: Value =
+        serde_json::from_str(&content).unwrap_or_else(|_| Value::Object(Default::default()));
+    Ok((path, json))
+}
+
+fn write_settings(path: &PathBuf, value: &Value) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).ok();
+    }
+    let pretty = serde_json::to_string_pretty(value).context("serialize claude settings.json")?;
+    fs::write(path, pretty).with_context(|| format!("write {}", path.display()))?;
+    Ok(())
+}
+
+pub fn install_usage_hook() -> Result<HookStatus> {
+    let script = write_tap_script()?;
+    let (settings_file, mut settings) = read_settings()?;
+
+    // One-time backup of the existing file so uninstall can restore it.
+    let backup = settings_backup_path().ok_or_else(|| anyhow!("HOME unset"))?;
+    if !backup.exists() {
+        if settings_file.exists() {
+            fs::copy(&settings_file, &backup)
+                .with_context(|| format!("backup {}", backup.display()))?;
+        } else {
+            fs::write(&backup, "{}\n").ok();
+        }
+    }
+
+    if !settings.is_object() {
+        settings = Value::Object(Default::default());
+    }
+    let obj = settings
+        .as_object_mut()
+        .ok_or_else(|| anyhow!("settings.json is not an object"))?;
+    obj.insert(
+        "statusLine".to_string(),
+        serde_json::json!({
+            "type": "command",
+            "command": script.to_string_lossy(),
+            "refreshInterval": 3000,
+            "padding": 0
+        }),
+    );
+    write_settings(&settings_file, &settings)?;
+
+    status()
+}
+
+pub fn uninstall_usage_hook() -> Result<HookStatus> {
+    let (settings_file, mut settings) = read_settings()?;
+    let backup = settings_backup_path().ok_or_else(|| anyhow!("HOME unset"))?;
+
+    if backup.exists() {
+        fs::copy(&backup, &settings_file)
+            .with_context(|| format!("restore {}", settings_file.display()))?;
+        let _ = fs::remove_file(&backup);
+    } else if let Some(obj) = settings.as_object_mut() {
+        obj.remove("statusLine");
+        write_settings(&settings_file, &settings)?;
+    }
+
+    if let Some(script) = tap_script_path() {
+        let _ = fs::remove_file(&script);
+    }
+    status()
+}
+
+pub fn status() -> Result<HookStatus> {
+    let script = tap_script_path().ok_or_else(|| anyhow!("HOME unset"))?;
+    let cache = tap_cache_path().ok_or_else(|| anyhow!("HOME unset"))?;
+    let (settings_file, settings) = read_settings()?;
+
+    let configured = settings
+        .get("statusLine")
+        .and_then(|v| v.get("command"))
+        .and_then(|c| c.as_str())
+        .map(|s| s == script.to_string_lossy())
+        .unwrap_or(false);
+
+    let mut out = HookStatus {
+        installed: configured && script.exists(),
+        script_path: Some(script.to_string_lossy().into_owned()),
+        cache_path: Some(cache.to_string_lossy().into_owned()),
+        last_captured_iso: None,
+        last_captured_age_secs: None,
+        settings_path: Some(settings_file.to_string_lossy().into_owned()),
+    };
+
+    if let Ok(meta) = fs::metadata(&cache) {
+        if let Ok(modified) = meta.modified() {
+            if let Ok(dur) = modified.duration_since(SystemTime::UNIX_EPOCH) {
+                let dt = chrono::DateTime::<Utc>::from_timestamp(dur.as_secs() as i64, 0);
+                if let Some(dt) = dt {
+                    out.last_captured_iso = Some(dt.to_rfc3339());
+                }
+                if let Ok(age) = SystemTime::now().duration_since(modified) {
+                    let secs: u64 = age.as_secs();
+                    out.last_captured_age_secs = Some(secs);
+                }
+            }
+        }
+    }
+
+    Ok(out)
+}
+
+pub fn read_rate_limits() -> Result<Option<RateLimits>> {
+    let cache = tap_cache_path().ok_or_else(|| anyhow!("HOME unset"))?;
+    let content = match fs::read_to_string(&cache) {
+        Ok(c) => c,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(anyhow!("read {}: {e}", cache.display())),
+    };
+    let json: Value = match serde_json::from_str(&content) {
+        Ok(v) => v,
+        Err(_) => return Ok(None),
+    };
+    let rl = match json.get("rate_limits") {
+        Some(v) if v.is_object() => v,
+        _ => return Ok(None),
+    };
+
+    fn parse_bucket(v: Option<&Value>) -> Option<RateLimitBucket> {
+        let obj = v?.as_object()?;
+        Some(RateLimitBucket {
+            used_percentage: obj
+                .get("used_percentage")
+                .and_then(|n| n.as_f64())
+                .unwrap_or(0.0),
+            resets_at: obj
+                .get("resets_at")
+                .and_then(|s| s.as_str())
+                .map(|s| s.to_string()),
+        })
+    }
+
+    let five_hour = parse_bucket(rl.get("five_hour"));
+    let seven_day = parse_bucket(rl.get("seven_day"));
+
+    if five_hour.is_none() && seven_day.is_none() {
+        return Ok(None);
+    }
+
+    let (captured_at_iso, stale_seconds) =
+        match fs::metadata(&cache).and_then(|m| m.modified()).ok() {
+            Some(modified) => {
+                let iso = modified
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .ok()
+                    .and_then(|d| chrono::DateTime::<Utc>::from_timestamp(d.as_secs() as i64, 0))
+                    .map(|dt| dt.to_rfc3339());
+                let age: u64 = SystemTime::now()
+                    .duration_since(modified)
+                    .map(|d: StdDuration| d.as_secs())
+                    .unwrap_or(0);
+                (iso, age)
+            }
+            None => (None, u64::MAX),
+        };
+
+    Ok(Some(RateLimits {
+        five_hour,
+        seven_day,
+        captured_at_iso,
+        stale_seconds,
+    }))
 }
 
 #[cfg(test)]

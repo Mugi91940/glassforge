@@ -44,6 +44,10 @@ pub fn run() {
             remove_session,
             list_sessions,
             get_claude_usage,
+            get_rate_limits,
+            get_usage_hook_status,
+            install_usage_hook,
+            uninstall_usage_hook,
             list_skills,
             install_skill,
             set_kde_blur,
@@ -100,6 +104,28 @@ async fn get_claude_usage() -> Result<claude::usage::Snapshot, String> {
     tokio::task::spawn_blocking(|| claude::usage::compute().map_err(|e| e.to_string()))
         .await
         .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn get_rate_limits() -> Result<Option<claude::usage::RateLimits>, String> {
+    tokio::task::spawn_blocking(|| claude::usage::read_rate_limits().map_err(|e| e.to_string()))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+fn get_usage_hook_status() -> Result<claude::usage::HookStatus, String> {
+    claude::usage::status().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn install_usage_hook() -> Result<claude::usage::HookStatus, String> {
+    claude::usage::install_usage_hook().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn uninstall_usage_hook() -> Result<claude::usage::HookStatus, String> {
+    claude::usage::uninstall_usage_hook().map_err(|e| e.to_string())
 }
 
 #[tauri::command]

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Zap, ZapOff } from "lucide-react";
 
 import * as log from "@/lib/log";
 import {
@@ -18,8 +18,14 @@ import {
 } from "@/lib/plan";
 import {
   getClaudeUsage,
+  getRateLimits,
+  getUsageHookStatus,
+  installUsageHook,
+  uninstallUsageHook,
   type ClaudeUsageSnapshot,
   type ClaudeUsageTotals,
+  type RateLimits,
+  type UsageHookStatus,
 } from "@/lib/tauri-commands";
 import { useSessionStore } from "@/stores/sessionStore";
 
@@ -83,6 +89,9 @@ export function UsagePanel() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [planId, setPlanIdState] = useState<PlanId>(() => loadPlan());
+  const [hook, setHook] = useState<UsageHookStatus | null>(null);
+  const [rates, setRates] = useState<RateLimits | null>(null);
+  const [hookBusy, setHookBusy] = useState(false);
 
   const plan: Plan = useMemo(() => resolvePlan(planId), [planId]);
 
@@ -95,8 +104,14 @@ export function UsagePanel() {
     setLoading(true);
     setErr(null);
     try {
-      const s = await getClaudeUsage();
+      const [s, h, r] = await Promise.all([
+        getClaudeUsage(),
+        getUsageHookStatus(),
+        getRateLimits(),
+      ]);
       setSnap(s);
+      setHook(h);
+      setRates(r);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setErr(msg);
@@ -108,9 +123,44 @@ export function UsagePanel() {
 
   useEffect(() => {
     void refresh();
-    const h = window.setInterval(() => void refresh(), 30_000);
+    const h = window.setInterval(() => void refresh(), 10_000);
     return () => window.clearInterval(h);
   }, [refresh]);
+
+  async function onInstallHook() {
+    setHookBusy(true);
+    setErr(null);
+    try {
+      const h = await installUsageHook();
+      setHook(h);
+      await refresh();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setErr(msg);
+    } finally {
+      setHookBusy(false);
+    }
+  }
+
+  async function onUninstallHook() {
+    setHookBusy(true);
+    setErr(null);
+    try {
+      const h = await uninstallUsageHook();
+      setHook(h);
+      setRates(null);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setErr(msg);
+    } finally {
+      setHookBusy(false);
+    }
+  }
+
+  const liveRates =
+    rates &&
+    (rates.fiveHour !== null || rates.sevenDay !== null) &&
+    rates.staleSeconds < 60 * 15;
 
   const lastActivity = useMemo(
     () => formatRelative(snap.lastActivityIso),
@@ -119,6 +169,13 @@ export function UsagePanel() {
 
   const fiveHourUsed = billableTokens(snap.last5h);
   const weeklyUsed = billableTokens(snap.last7d);
+
+  const fiveHourPct = liveRates
+    ? (rates?.fiveHour?.usedPercentage ?? null)
+    : null;
+  const weeklyPct = liveRates
+    ? (rates?.sevenDay?.usedPercentage ?? null)
+    : null;
 
   return (
     <section className={styles.root}>
@@ -141,6 +198,49 @@ export function UsagePanel() {
 
       {err ? <p className={styles.error}>{err}</p> : null}
 
+      {hook ? (
+        hook.installed ? (
+          <div className={styles.hookActive}>
+            <Zap size={11} />
+            <span>
+              Live /usage hook active ·{" "}
+              {rates?.capturedAtIso
+                ? `${formatRelative(rates.capturedAtIso)}`
+                : "waiting for first claude run"}
+            </span>
+            <button
+              type="button"
+              className={styles.hookToggle}
+              onClick={() => void onUninstallHook()}
+              disabled={hookBusy}
+            >
+              disable
+            </button>
+          </div>
+        ) : (
+          <div className={styles.hookInstall}>
+            <ZapOff size={11} />
+            <div className={styles.hookText}>
+              <strong>Live usage not enabled</strong>
+              <span>
+                GlassForge can install a statusLine hook in your
+                ~/.claude/settings.json to capture the real /usage data
+                (five-hour + weekly). Your existing settings.json is backed
+                up first.
+              </span>
+            </div>
+            <button
+              type="button"
+              className={styles.hookToggle}
+              onClick={() => void onInstallHook()}
+              disabled={hookBusy}
+            >
+              {hookBusy ? "Installing…" : "Enable"}
+            </button>
+          </div>
+        )
+      ) : null}
+
       <div className={styles.planRow}>
         <span className={styles.planLabel}>Plan</span>
         <Dropdown
@@ -154,15 +254,31 @@ export function UsagePanel() {
       </div>
 
       <div className={styles.rateLimits}>
-        <LimitsBar
-          label="5-hour window"
-          used={fiveHourUsed}
-          total={plan.fiveHourTokens}
-          format={(u, t) => `${formatTokens(u)} / ${formatTokens(t)}`}
-        />
-        {plan.weeklyTokens !== null ? (
+        {fiveHourPct !== null ? (
           <LimitsBar
-            label="Weekly"
+            label="5-hour window (live)"
+            used={Math.round(fiveHourPct * 100)}
+            total={10_000}
+            format={() => `${fiveHourPct.toFixed(1)}%`}
+          />
+        ) : (
+          <LimitsBar
+            label="5-hour window (est.)"
+            used={fiveHourUsed}
+            total={plan.fiveHourTokens}
+            format={(u, t) => `${formatTokens(u)} / ${formatTokens(t)}`}
+          />
+        )}
+        {weeklyPct !== null ? (
+          <LimitsBar
+            label="Weekly (live)"
+            used={Math.round(weeklyPct * 100)}
+            total={10_000}
+            format={() => `${weeklyPct.toFixed(1)}%`}
+          />
+        ) : plan.weeklyTokens !== null ? (
+          <LimitsBar
+            label="Weekly (est.)"
             used={weeklyUsed}
             total={plan.weeklyTokens}
             format={(u, t) => `${formatTokens(u)} / ${formatTokens(t)}`}
