@@ -1,10 +1,61 @@
 .root {
+  position: relative;
   display: flex;
   align-items: flex-end;
   gap: 0.5rem;
   padding: 0.75rem 1rem 1rem;
   border-top: 1px solid var(--glass-border);
   background: rgba(255, 255, 255, 0.02);
+}
+
+.slashMenu {
+  position: absolute;
+  bottom: calc(100% + 0.35rem);
+  left: 1rem;
+  right: 3.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  max-height: 14rem;
+  overflow-y: auto;
+  background: rgba(var(--bg-primary-rgb), 0.92);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(var(--modal-panel-blur)) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(var(--modal-panel-blur)) saturate(var(--glass-saturation));
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  z-index: 5;
+}
+
+.slashItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.slashItem:hover,
+.slashItemActive {
+  background: color-mix(in srgb, var(--accent-primary) 18%, transparent);
+}
+
+.slashName {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--accent-primary);
+}
+
+.slashDescription {
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
 }
 
 .textarea {

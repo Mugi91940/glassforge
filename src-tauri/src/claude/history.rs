@@ -77,6 +77,10 @@ pub fn list_project_sessions() -> Result<Vec<ProjectSummary>> {
 
     let mut projects: Vec<ProjectSummary> = by_project
         .into_iter()
+        // Filter out projects whose cwd no longer exists on disk — they
+        // can't be resumed because create_session validates the path
+        // and it would just clutter the list with dead branches.
+        .filter(|(path, _)| std::path::Path::new(path).is_dir())
         .map(|(path, mut sessions)| {
             sessions.sort_by(|a, b| b.last_ts.cmp(&a.last_ts));
             ProjectSummary { path, sessions }
@@ -360,6 +364,44 @@ pub fn load_session_history(session_id: &str) -> Result<Vec<Value>> {
     }
 
     Ok(entries)
+}
+
+/// Permanently remove a session's JSONL file from `~/.claude/projects`.
+/// Validates the resolved path stays under the projects directory so a
+/// crafted id can't escape the sandbox.
+pub fn delete_session_file(session_id: &str) -> Result<()> {
+    let dir = projects_dir().ok_or_else(|| anyhow!("HOME not set"))?;
+    let canonical_root = dir.canonicalize().unwrap_or_else(|_| dir.clone());
+
+    let mut found: Option<PathBuf> = None;
+    for entry in fs::read_dir(&dir)?.flatten() {
+        let p = entry.path();
+        if !p.is_dir() {
+            continue;
+        }
+        for sess in fs::read_dir(&p)?.flatten() {
+            let file = sess.path();
+            if file.file_stem().and_then(|s| s.to_str()) == Some(session_id)
+                && file.extension().and_then(|e| e.to_str()) == Some("jsonl")
+            {
+                found = Some(file);
+                break;
+            }
+        }
+    }
+
+    let Some(path) = found else {
+        return Err(anyhow!("session {session_id} not found"));
+    };
+
+    let canonical_target = path.canonicalize().unwrap_or_else(|_| path.clone());
+    if !canonical_target.starts_with(&canonical_root) {
+        return Err(anyhow!("refusing to delete path outside projects dir"));
+    }
+
+    fs::remove_file(&canonical_target)
+        .map_err(|e| anyhow!("remove {}: {e}", canonical_target.display()))?;
+    Ok(())
 }
 
 fn tool_result_text(v: Option<&Value>) -> String {

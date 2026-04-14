@@ -15,18 +15,22 @@ function getStore(): LazyStore {
 
 type Persisted = {
   permissionMode: PermissionMode;
+  skipDeleteWarning: boolean;
 };
 
 type PreferencesState = {
   permissionMode: PermissionMode;
+  skipDeleteWarning: boolean;
   loaded: boolean;
 
   load: () => Promise<void>;
   setPermissionMode: (mode: PermissionMode) => Promise<void>;
+  setSkipDeleteWarning: (skip: boolean) => Promise<void>;
 };
 
 const DEFAULTS: Persisted = {
   permissionMode: "acceptEdits",
+  skipDeleteWarning: false,
 };
 
 function isValidMode(v: unknown): v is PermissionMode {
@@ -50,6 +54,7 @@ async function persist(next: Persisted): Promise<void> {
 
 export const usePreferencesStore = create<PreferencesState>((set, get) => ({
   permissionMode: DEFAULTS.permissionMode,
+  skipDeleteWarning: DEFAULTS.skipDeleteWarning,
   loaded: false,
 
   load: async () => {
@@ -60,7 +65,11 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
         raw && isValidMode(raw.permissionMode)
           ? raw.permissionMode
           : DEFAULTS.permissionMode;
-      set({ permissionMode: mode, loaded: true });
+      const skip =
+        raw && typeof raw.skipDeleteWarning === "boolean"
+          ? raw.skipDeleteWarning
+          : DEFAULTS.skipDeleteWarning;
+      set({ permissionMode: mode, skipDeleteWarning: skip, loaded: true });
     } catch (e) {
       log.warn("preferences load failed", e);
       set({ loaded: true });
@@ -69,6 +78,17 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
 
   setPermissionMode: async (mode) => {
     set({ permissionMode: mode });
-    await persist({ ...get(), permissionMode: mode });
+    await persist({
+      permissionMode: mode,
+      skipDeleteWarning: get().skipDeleteWarning,
+    });
+  },
+
+  setSkipDeleteWarning: async (skip) => {
+    set({ skipDeleteWarning: skip });
+    await persist({
+      permissionMode: get().permissionMode,
+      skipDeleteWarning: skip,
+    });
   },
 }));

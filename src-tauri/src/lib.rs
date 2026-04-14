@@ -51,6 +51,7 @@ pub fn run() {
             list_sessions,
             list_project_sessions,
             load_session_history,
+            delete_session_file,
             get_claude_usage,
             get_rate_limits,
             list_skills,
@@ -88,6 +89,11 @@ fn list_project_sessions() -> Result<Vec<claude::history::ProjectSummary>, Strin
 #[tauri::command]
 fn load_session_history(session_id: String) -> Result<Vec<serde_json::Value>, String> {
     claude::history::load_session_history(&session_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn delete_session_file(session_id: String) -> Result<(), String> {
+    claude::history::delete_session_file(&session_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

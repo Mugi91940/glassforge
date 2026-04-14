@@ -15,7 +15,7 @@ import { createSession } from "@/lib/tauri-commands";
 import { useProjectHistoryStore } from "@/stores/projectHistoryStore";
 import { useSessionStore } from "@/stores/sessionStore";
 
-import { ProjectsTree } from "@/components/sessions/ProjectsTree";
+import { SessionsForProject } from "@/components/sessions/SessionsForProject";
 import { SkillsPanel } from "@/components/skills/SkillsPanel";
 import { UsagePanel } from "@/components/stats/UsagePanel";
 import { ProjectPicker } from "@/components/ui/ProjectPicker";
@@ -272,7 +272,7 @@ export function Sidebar() {
       </div>
 
       <div className={styles.tabBody}>
-        {tab === "sessions" && <ProjectsTree />}
+        {tab === "sessions" && <SessionsForProject projectPath={projectPath} />}
         {tab === "usage" && <UsagePanel />}
         {tab === "skills" && <SkillsPanel />}
       </div>

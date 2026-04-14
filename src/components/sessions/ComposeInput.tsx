@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Send, Square } from "lucide-react";
 
 import * as log from "@/lib/log";
@@ -14,10 +14,38 @@ type Props = {
   disabled?: boolean;
 };
 
-const SLASH_HELP = `/clear — wipe the local transcript (claude session is untouched)
-/model <opus|sonnet|haiku|default> — switch model for this session
-/compact — ask claude to summarize the conversation
-/help — show this list`;
+type SlashCommand = {
+  name: string;
+  description: string;
+  completion: string; // what to write into the input when picked
+};
+
+const SLASH_COMMANDS: SlashCommand[] = [
+  {
+    name: "/clear",
+    description: "Wipe the local transcript (claude session untouched)",
+    completion: "/clear",
+  },
+  {
+    name: "/model",
+    description: "Switch model: opus | sonnet | haiku | default",
+    completion: "/model ",
+  },
+  {
+    name: "/compact",
+    description: "Ask claude to summarize the conversation",
+    completion: "/compact",
+  },
+  {
+    name: "/help",
+    description: "Show the list of slash commands",
+    completion: "/help",
+  },
+];
+
+const SLASH_HELP = SLASH_COMMANDS.map(
+  (c) => `${c.name} — ${c.description}`,
+).join("\n");
 
 export function ComposeInput({ sessionId, disabled }: Props) {
   const model = useSessionStore(
@@ -31,7 +59,29 @@ export function ComposeInput({ sessionId, disabled }: Props) {
   const seedEntries = useSessionStore((s) => s.seedEntries);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [menuIndex, setMenuIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Slash autocomplete is active when the line the cursor is on starts
+  // with '/' and contains no whitespace after it yet. Keeps multiline
+  // messages free of interference.
+  const slashSuggestions = useMemo(() => {
+    if (!text.startsWith("/")) return [] as SlashCommand[];
+    const firstWord = text.split(/\s/)[0];
+    if (!firstWord.startsWith("/")) return [];
+    if (text.includes(" ") || text.includes("\n")) return [];
+    const prefix = firstWord.toLowerCase();
+    return SLASH_COMMANDS.filter((c) => c.name.startsWith(prefix));
+  }, [text]);
+
+  useEffect(() => {
+    if (menuIndex >= slashSuggestions.length) setMenuIndex(0);
+  }, [slashSuggestions.length, menuIndex]);
+
+  function applySuggestion(cmd: SlashCommand) {
+    setText(cmd.completion);
+    textareaRef.current?.focus();
+  }
 
   function pushSystem(text: string) {
     const prev = useSessionStore.getState().entries[sessionId] ?? [];
@@ -132,7 +182,46 @@ export function ComposeInput({ sessionId, disabled }: Props) {
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    const menuOpen = slashSuggestions.length > 0;
+    if (menuOpen) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setMenuIndex((i) =>
+          Math.min(slashSuggestions.length - 1, i + 1),
+        );
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setMenuIndex((i) => Math.max(0, i - 1));
+        return;
+      }
+      if (e.key === "Tab") {
+        e.preventDefault();
+        const pick = slashSuggestions[menuIndex];
+        if (pick) applySuggestion(pick);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setText("");
+        return;
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
+      if (menuOpen && slashSuggestions.length > 0) {
+        // When the menu is open, Enter picks the highlighted command
+        // instead of submitting — unless the user already typed it out
+        // completely and the menu only shows a single exact match.
+        const pick = slashSuggestions[menuIndex];
+        const exactMatch =
+          slashSuggestions.length === 1 && pick?.name === text.trim();
+        if (!exactMatch && pick) {
+          e.preventDefault();
+          applySuggestion(pick);
+          return;
+        }
+      }
       e.preventDefault();
       void onSubmit();
     }
@@ -140,6 +229,30 @@ export function ComposeInput({ sessionId, disabled }: Props) {
 
   return (
     <div className={styles.root}>
+      {slashSuggestions.length > 0 ? (
+        <ul className={styles.slashMenu} role="listbox">
+          {slashSuggestions.map((cmd, i) => (
+            <li
+              key={cmd.name}
+              className={`${styles.slashItem} ${
+                i === menuIndex ? styles.slashItemActive : ""
+              }`}
+              onMouseEnter={() => setMenuIndex(i)}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                applySuggestion(cmd);
+              }}
+              role="option"
+              aria-selected={i === menuIndex}
+            >
+              <span className={styles.slashName}>{cmd.name}</span>
+              <span className={styles.slashDescription}>
+                {cmd.description}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <textarea
         ref={textareaRef}
         className={styles.textarea}

@@ -42,6 +42,10 @@ export async function loadSessionHistory(
   return invoke<unknown[]>("load_session_history", { sessionId });
 }
 
+export async function deleteSessionFile(sessionId: string): Promise<void> {
+  return invoke<void>("delete_session_file", { sessionId });
+}
+
 export type PermissionMode =
   | "acceptEdits"
   | "bypassPermissions"

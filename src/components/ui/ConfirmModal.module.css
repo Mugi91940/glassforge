@@ -1,0 +1,126 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, var(--modal-dim-alpha));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: fade 0.14s ease;
+}
+
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  width: min(460px, 92vw);
+  padding: 1rem 1.1rem 0.9rem;
+  background: rgba(var(--bg-primary-rgb), var(--modal-panel-alpha));
+  border: 1px solid
+    color-mix(in srgb, var(--accent-warning, #e0a050) 30%, var(--glass-border));
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.65),
+    0 2px 8px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(var(--modal-panel-blur)) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(var(--modal-panel-blur)) saturate(var(--glass-saturation));
+  animation: pop 0.18s ease;
+}
+
+@keyframes pop {
+  from { opacity: 0; transform: scale(0.97) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.icon {
+  color: var(--accent-warning, #e0a050);
+  flex-shrink: 0;
+}
+
+.danger {
+  color: var(--accent-danger);
+}
+
+.title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.description {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.dismissRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.dismissRow input {
+  accent-color: var(--accent-primary);
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+}
+
+.cancel,
+.confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0.95rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease, transform 0.1s ease;
+}
+
+.cancel:hover,
+.confirm:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.cancel:active,
+.confirm:active {
+  transform: translateY(1px);
+}
+
+.confirmDanger {
+  background: color-mix(in srgb, var(--accent-danger) 22%, transparent);
+  border-color: color-mix(in srgb, var(--accent-danger) 55%, transparent);
+  color: var(--text-primary);
+}
+
+.confirmDanger:hover {
+  background: color-mix(in srgb, var(--accent-danger) 34%, transparent);
+}
