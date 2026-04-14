@@ -33,7 +33,7 @@ modules:
   - name: glassforge
     buildsystem: simple
     build-commands:
-      - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.85.0 --profile minimal --no-modify-path
+      - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.88.0 --profile minimal --no-modify-path
       - npm install -g pnpm
       - pnpm install --frozen-lockfile || pnpm install
       - pnpm build
