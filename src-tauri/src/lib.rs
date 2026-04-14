@@ -43,6 +43,7 @@ pub fn run() {
             kill_session,
             remove_session,
             list_sessions,
+            get_claude_usage,
             list_skills,
             install_skill,
             set_kde_blur,
@@ -92,6 +93,13 @@ fn remove_session(registry: RegistryState<'_>, session_id: String) -> Result<(),
 #[tauri::command]
 fn list_sessions(registry: RegistryState<'_>) -> Vec<SessionInfo> {
     claude::list_sessions(registry.inner())
+}
+
+#[tauri::command]
+async fn get_claude_usage() -> Result<claude::usage::Snapshot, String> {
+    tokio::task::spawn_blocking(|| claude::usage::compute().map_err(|e| e.to_string()))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

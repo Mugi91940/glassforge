@@ -1,109 +1,154 @@
-import { useMemo } from "react";
-import { useShallow } from "zustand/react/shallow";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { RefreshCw } from "lucide-react";
 
+import * as log from "@/lib/log";
 import {
   estimateTokens,
   formatCost,
   formatTokens,
   resolvePricing,
 } from "@/lib/pricing";
-import type { SessionInfo } from "@/lib/types";
-import { useLimitsStore } from "@/stores/limitsStore";
-import { useSessionStore, type SessionUsage } from "@/stores/sessionStore";
+import {
+  getClaudeUsage,
+  type ClaudeUsageSnapshot,
+  type ClaudeUsageTotals,
+} from "@/lib/tauri-commands";
+import { useSessionStore } from "@/stores/sessionStore";
 
 import { LimitsBar } from "./LimitsBar";
 
 import styles from "./UsagePanel.module.css";
 
-type AggregatedTotals = {
-  tokensIn: number;
-  tokensOut: number;
-  messages: number;
-  costUsd: number;
+const EMPTY_TOTALS: ClaudeUsageTotals = {
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheCreationTokens: 0,
+  cacheReadTokens: 0,
+  costUsd: 0,
+  messages: 0,
 };
 
-function aggregate(
-  sessions: Record<string, SessionInfo>,
-  usage: Record<string, SessionUsage>,
-): AggregatedTotals {
-  let tokensIn = 0;
-  let tokensOut = 0;
-  let messages = 0;
-  let costUsd = 0;
-  for (const id of Object.keys(sessions)) {
-    const u = usage[id];
-    if (!u) continue;
-    tokensIn += estimateTokens(u.bytesIn);
-    tokensOut += estimateTokens(u.bytesOut);
-    messages += u.messages;
-    costUsd += u.totalCostUsd;
-  }
-  return { tokensIn, tokensOut, messages, costUsd };
+const EMPTY_SNAPSHOT: ClaudeUsageSnapshot = {
+  today: EMPTY_TOTALS,
+  last7d: EMPTY_TOTALS,
+  allTime: EMPTY_TOTALS,
+  byModel: [],
+  lastActivityIso: null,
+  sessionCount: 0,
+};
+
+function formatRelative(iso: string | null): string {
+  if (!iso) return "never";
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "—";
+  const delta = Math.max(0, Date.now() - then);
+  const sec = Math.floor(delta / 1000);
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 48) return `${hr}h ago`;
+  const d = Math.floor(hr / 24);
+  return `${d}d ago`;
+}
+
+function totalTokens(t: ClaudeUsageTotals): number {
+  return t.inputTokens + t.outputTokens;
 }
 
 export function UsagePanel() {
-  const { sessions, usage, order } = useSessionStore(
-    useShallow((s) => ({
-      sessions: s.sessions,
-      usage: s.usage,
-      order: s.order,
-    })),
-  );
-  const limits = useLimitsStore((s) => s.config);
+  const order = useSessionStore((s) => s.order);
+  const sessions = useSessionStore((s) => s.sessions);
+  const liveUsage = useSessionStore((s) => s.usage);
 
-  const totals = useMemo(
-    () => aggregate(sessions, usage),
-    [sessions, usage],
+  const [snap, setSnap] = useState<ClaudeUsageSnapshot>(EMPTY_SNAPSHOT);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setErr(null);
+    try {
+      const s = await getClaudeUsage();
+      setSnap(s);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setErr(msg);
+      log.warn("get_claude_usage failed", msg);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+    // Re-fetch every 30s while the panel is mounted; claude writes to the
+    // JSONL files live as messages flow so we want reasonable freshness.
+    const h = window.setInterval(() => void refresh(), 30_000);
+    return () => window.clearInterval(h);
+  }, [refresh]);
+
+  const lastActivity = useMemo(
+    () => formatRelative(snap.lastActivityIso),
+    [snap.lastActivityIso],
   );
 
   return (
     <section className={styles.root}>
       <header className={styles.header}>
-        <h3 className={styles.title}>Usage</h3>
-        <span className={styles.subtitle}>
-          {order.length} session{order.length === 1 ? "" : "s"}
-        </span>
+        <div className={styles.headerText}>
+          <h3 className={styles.title}>Usage</h3>
+          <span className={styles.subtitle}>
+            {snap.sessionCount} total · last {lastActivity}
+          </span>
+        </div>
+        <button
+          type="button"
+          className={`${styles.refresh} ${loading ? styles.spinning : ""}`}
+          onClick={() => void refresh()}
+          aria-label="Refresh usage"
+        >
+          <RefreshCw size={12} />
+        </button>
       </header>
 
-      <div className={styles.totals}>
-        <Stat label="Tokens in" value={formatTokens(totals.tokensIn)} />
-        <Stat label="Tokens out" value={formatTokens(totals.tokensOut)} />
-        <Stat label="Messages" value={String(totals.messages)} />
-        <Stat label="Est. cost" value={formatCost(totals.costUsd)} />
+      {err ? <p className={styles.error}>{err}</p> : null}
+
+      <div className={styles.buckets}>
+        <BucketCard label="Today" totals={snap.today} />
+        <BucketCard label="Last 7 days" totals={snap.last7d} />
+        <BucketCard label="All time" totals={snap.allTime} />
       </div>
 
-      <div className={styles.bars}>
-        <LimitsBar
-          label="Concurrent sessions"
-          used={order.length}
-          total={limits.maxConcurrentSessions}
-        />
-        <LimitsBar
-          label="Daily messages"
-          used={totals.messages}
-          total={limits.dailyMessageBudget}
-        />
-        <LimitsBar
-          label="Weekly tokens"
-          used={totals.tokensIn + totals.tokensOut}
-          total={limits.weeklyTokenBudget}
-          format={(u, t) => `${formatTokens(u)} / ${formatTokens(t)}`}
-        />
-      </div>
+      {snap.byModel.length > 0 ? (
+        <div className={styles.byModel}>
+          <h4 className={styles.sectionTitle}>By model (all time)</h4>
+          <ul className={styles.modelList}>
+            {snap.byModel.map((m) => (
+              <li key={m.model} className={styles.modelRow}>
+                <span className={styles.modelName}>{m.model}</span>
+                <span className={styles.modelTokens}>
+                  {formatTokens(totalTokens(m.totals))}
+                </span>
+                <span className={styles.modelCost}>
+                  {formatCost(m.totals.costUsd)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
-      <div className={styles.sessionList}>
-        <h4 className={styles.sectionTitle}>Per session</h4>
-        {order.length === 0 ? (
-          <p className={styles.empty}>No sessions running.</p>
-        ) : (
+      {order.length > 0 ? (
+        <div className={styles.sessionList}>
+          <h4 className={styles.sectionTitle}>Live sessions</h4>
           <ul className={styles.list}>
             {order.map((id) => {
               const s = sessions[id];
-              const u = usage[id];
+              const u = liveUsage[id];
               if (!s || !u) return null;
               const inT = estimateTokens(u.bytesIn);
               const outT = estimateTokens(u.bytesOut);
-              const cost = u.totalCostUsd;
               const p = resolvePricing(s.model ?? null);
               return (
                 <li key={id} className={styles.listItem}>
@@ -119,33 +164,50 @@ export function UsagePanel() {
                     <span>
                       in {formatTokens(inT)} · out {formatTokens(outT)}
                     </span>
-                    <span>{formatCost(cost)}</span>
+                    <span>{formatCost(u.totalCostUsd)}</span>
                   </div>
-                  <div className={styles.context}>
-                    <LimitsBar
-                      label="Context"
-                      used={inT + outT}
-                      total={p.contextWindow}
-                      format={(u2, t2) =>
-                        `${formatTokens(u2)} / ${formatTokens(t2)}`
-                      }
-                    />
-                  </div>
+                  <LimitsBar
+                    label="Context"
+                    used={inT + outT}
+                    total={p.contextWindow}
+                    format={(a, b) =>
+                      `${formatTokens(a)} / ${formatTokens(b)}`
+                    }
+                  />
                 </li>
               );
             })}
           </ul>
-        )}
-      </div>
+        </div>
+      ) : null}
     </section>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function BucketCard({
+  label,
+  totals,
+}: {
+  label: string;
+  totals: ClaudeUsageTotals;
+}) {
   return (
-    <div className={styles.stat}>
-      <span className={styles.statLabel}>{label}</span>
-      <span className={styles.statValue}>{value}</span>
+    <div className={styles.bucket}>
+      <div className={styles.bucketLabel}>{label}</div>
+      <div className={styles.bucketCost}>{formatCost(totals.costUsd)}</div>
+      <div className={styles.bucketMeta}>
+        <span>
+          in {formatTokens(totals.inputTokens)} · out{" "}
+          {formatTokens(totals.outputTokens)}
+        </span>
+        <span>{totals.messages} msgs</span>
+      </div>
+      {totals.cacheReadTokens > 0 || totals.cacheCreationTokens > 0 ? (
+        <div className={styles.bucketCache}>
+          cache read {formatTokens(totals.cacheReadTokens)} · created{" "}
+          {formatTokens(totals.cacheCreationTokens)}
+        </div>
+      ) : null}
     </div>
   );
 }

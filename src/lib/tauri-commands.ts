@@ -39,6 +39,28 @@ export async function listSessions(): Promise<SessionInfo[]> {
   return invoke<SessionInfo[]>("list_sessions");
 }
 
+export type ClaudeUsageTotals = {
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  costUsd: number;
+  messages: number;
+};
+
+export type ClaudeUsageSnapshot = {
+  today: ClaudeUsageTotals;
+  last7d: ClaudeUsageTotals;
+  allTime: ClaudeUsageTotals;
+  byModel: { model: string; totals: ClaudeUsageTotals }[];
+  lastActivityIso: string | null;
+  sessionCount: number;
+};
+
+export async function getClaudeUsage(): Promise<ClaudeUsageSnapshot> {
+  return invoke<ClaudeUsageSnapshot>("get_claude_usage");
+}
+
 export async function setKdeBlur(enabled: boolean): Promise<void> {
   return invoke<void>("set_kde_blur", { enabled });
 }

@@ -4,6 +4,7 @@
 pub mod limits;
 pub mod parser;
 pub mod session;
+pub mod usage;
 
 pub use session::{
     create_session, kill_session, list_sessions, remove_session, send_message, SessionInfo,
