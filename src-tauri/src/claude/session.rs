@@ -37,6 +37,29 @@ pub enum SessionStatus {
     Done,
 }
 
+/// When running inside a Flatpak sandbox, `flatpak-spawn --host` invokes
+/// commands on the host with a minimal PATH that typically does not include
+/// `~/.local/bin` or npm-global bin dirs. Probe a few well-known locations
+/// and return the first one that exists, or fall back to the bare name and
+/// hope the host's PATH picks it up.
+fn resolve_host_claude() -> String {
+    if let Ok(home) = std::env::var("HOME") {
+        let candidates = [
+            format!("{home}/.local/bin/claude"),
+            format!("{home}/.npm-global/bin/claude"),
+            format!("{home}/.nvm/versions/node/current/bin/claude"),
+            "/usr/local/bin/claude".to_string(),
+            "/usr/bin/claude".to_string(),
+        ];
+        for c in candidates.iter() {
+            if std::path::Path::new(c).exists() {
+                return c.clone();
+            }
+        }
+    }
+    "claude".to_string()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionInfo {
     pub id: String,
@@ -154,10 +177,11 @@ pub fn send_message(
 
     let in_flatpak = std::path::Path::new("/.flatpak-info").exists();
     let mut cmd = if in_flatpak {
+        let claude_path = resolve_host_claude();
         let mut c = Command::new("flatpak-spawn");
         c.arg("--host");
         c.arg(format!("--directory={}", project_path));
-        c.arg("claude");
+        c.arg(claude_path);
         c
     } else {
         let mut c = Command::new("claude");
