@@ -122,11 +122,24 @@ impl PermissionBroker {
             .get(session_id)
             .ok_or_else(|| anyhow!("session not registered with permission broker"))?;
 
+        // Claude can emit multiple tool_use blocks in a single assistant
+        // turn and spawn parallel hook subprocesses — each one parks its
+        // own stream here. "Allow session" needs to unblock ALL of them,
+        // not just the one the user clicked on, otherwise the remaining
+        // parked hooks sit forever waiting.
         if matches!(decision, Decision::AllowSession) {
             *state
                 .auto_allow
                 .lock()
                 .map_err(|_| anyhow!("auto_allow lock poisoned"))? = true;
+            let mut pending = state
+                .pending
+                .lock()
+                .map_err(|_| anyhow!("pending lock poisoned"))?;
+            for (_, mut stream) in pending.drain() {
+                stream.write_all(b"allow\n").ok();
+            }
+            return Ok(());
         }
 
         let mut pending = state
@@ -137,8 +150,9 @@ impl PermissionBroker {
             .remove(request_id)
             .ok_or_else(|| anyhow!("no pending request with id {request_id}"))?;
         let reply = match decision {
-            Decision::Allow | Decision::AllowSession => "allow\n",
+            Decision::Allow => "allow\n",
             Decision::Deny => "deny\n",
+            Decision::AllowSession => unreachable!(),
         };
         stream.write_all(reply.as_bytes()).ok();
         Ok(())

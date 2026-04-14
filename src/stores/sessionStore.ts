@@ -55,6 +55,7 @@ type SessionState = {
   removeSession: (id: string) => void;
   pushPermission: (sessionId: string, req: PendingPermission) => void;
   resolvePermission: (sessionId: string, requestId: string) => void;
+  clearPermissions: (sessionId: string) => void;
 };
 
 // Helper: extract text from a list of content blocks.
@@ -404,4 +405,9 @@ export const useSessionStore = create<SessionState>((set) => ({
         },
       };
     }),
+
+  clearPermissions: (sessionId) =>
+    set((s) => ({
+      pendingPermissions: { ...s.pendingPermissions, [sessionId]: [] },
+    })),
 }));

@@ -30,6 +30,7 @@ export function PermissionModal({ sessionId }: Props) {
     (s) => s.pendingPermissions[sessionId]?.[0] ?? null,
   );
   const markResolved = useSessionStore((s) => s.resolvePermission);
+  const clearAll = useSessionStore((s) => s.clearPermissions);
 
   useEffect(() => {
     if (!pending) return;
@@ -56,7 +57,13 @@ export function PermissionModal({ sessionId }: Props) {
     } catch (e) {
       log.warn("resolve_permission failed", e);
     } finally {
-      markResolved(sessionId, pending.requestId);
+      if (decision === "allowSession") {
+        // The Rust broker drains every parked request for this session,
+        // so the frontend needs to mirror that and drop the whole queue.
+        clearAll(sessionId);
+      } else {
+        markResolved(sessionId, pending.requestId);
+      }
     }
   }
 
