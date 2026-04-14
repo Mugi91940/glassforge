@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
-import { Minus, Square, X } from "lucide-react";
+import { Minus, Settings, Square, X } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import styles from "./TopBar.module.css";
 
-export function TopBar() {
+type TopBarProps = {
+  onOpenSettings: () => void;
+};
+
+export function TopBar({ onOpenSettings }: TopBarProps) {
   const [win] = useState(() => getCurrentWindow());
   const [maximized, setMaximized] = useState(false);
 
@@ -31,6 +35,14 @@ export function TopBar() {
       <div className={styles.spacer} data-tauri-drag-region />
 
       <div className={styles.controls}>
+        <button
+          className={styles.controlButton}
+          aria-label="Settings"
+          onClick={onOpenSettings}
+          type="button"
+        >
+          <Settings size={14} />
+        </button>
         <button
           className={styles.controlButton}
           aria-label="Minimize"
