@@ -64,10 +64,23 @@ impl PermissionBroker {
         Self::default()
     }
 
-    /// Create the per-session socket and spawn an acceptor thread. Returns
-    /// the absolute socket path that must be exposed to the claude hook via
-    /// the `GLASSFORGE_PERM_SOCK` env var.
+    /// Get or create the per-session socket. Returns the absolute socket
+    /// path that must be exposed to the claude hook via the
+    /// `GLASSFORGE_PERM_SOCK` env var. Idempotent: calling it twice for the
+    /// same session id reuses the existing listener and, crucially, the
+    /// existing `auto_allow` flag — so "Allow session" persists across
+    /// multiple `send_message` invocations.
     pub fn register(&self, app: &AppHandle, session_id: &str) -> Result<PathBuf> {
+        {
+            let guard = self
+                .sessions
+                .lock()
+                .map_err(|_| anyhow!("broker lock poisoned"))?;
+            if let Some(existing) = guard.get(session_id) {
+                return Ok(existing.socket_path.clone());
+            }
+        }
+
         let dir = state_dir()?;
         std::fs::create_dir_all(&dir).ok();
         let socket_path = dir.join(format!("{session_id}.sock"));
