@@ -30,6 +30,11 @@
   --blur-strength: 40px;
   --blur-saturation: 1.6;
 
+  /* ── Modals (overlay dim + panel glass) ── */
+  --modal-dim-alpha: 0.62;
+  --modal-panel-alpha: 0.38;
+  --modal-panel-blur: 48px;
+
   /* ── Sidebar ── */
   --sidebar-width: 260px;
   --sidebar-bg: rgba(255, 255, 255, 0.01);

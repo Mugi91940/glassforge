@@ -2,9 +2,9 @@
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, var(--modal-dim-alpha));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   justify-content: flex-end;
   animation: fade 0.15s ease;
@@ -20,9 +20,9 @@
   flex-direction: column;
   width: min(460px, 100%);
   height: 100%;
-  background: rgba(var(--bg-primary-rgb), 0.85);
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  background: rgba(var(--bg-primary-rgb), var(--modal-panel-alpha));
+  backdrop-filter: blur(var(--modal-panel-blur)) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(var(--modal-panel-blur)) saturate(var(--glass-saturation));
   border-left: 1px solid var(--glass-border);
   box-shadow: -20px 0 60px rgba(0, 0, 0, 0.6);
   animation: slide 0.22s ease;

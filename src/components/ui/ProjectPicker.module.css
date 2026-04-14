@@ -5,9 +5,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, var(--modal-dim-alpha));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   animation: fade 0.14s ease;
 }
 
@@ -21,15 +21,15 @@
   flex-direction: column;
   width: min(620px, 92vw);
   max-height: min(72vh, 620px);
-  background: rgba(var(--bg-primary-rgb), 0.95);
+  background: rgba(var(--bg-primary-rgb), var(--modal-panel-alpha));
   border: 1px solid
     color-mix(in srgb, var(--accent-primary) 28%, var(--glass-border));
   border-radius: var(--radius-lg);
   box-shadow:
     0 24px 60px rgba(0, 0, 0, 0.6),
     0 2px 8px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(30px) saturate(1.6);
-  -webkit-backdrop-filter: blur(30px) saturate(1.6);
+  backdrop-filter: blur(var(--modal-panel-blur)) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(var(--modal-panel-blur)) saturate(var(--glass-saturation));
   overflow: hidden;
   animation: pop 0.18s ease;
 }

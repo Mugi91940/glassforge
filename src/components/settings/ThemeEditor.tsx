@@ -154,6 +154,37 @@ export function ThemeEditor() {
       </section>
 
       <section className={styles.section}>
+        <h3 className={styles.sectionTitle}>Modals</h3>
+        <SliderRow
+          label="Background dim"
+          value={vars.modalDimAlpha}
+          min={0}
+          max={0.9}
+          step={0.01}
+          format={(v) => `${Math.round(v * 100)}%`}
+          onChange={patchFn("modalDimAlpha")}
+        />
+        <SliderRow
+          label="Panel opacity"
+          value={vars.modalPanelAlpha}
+          min={0.1}
+          max={1}
+          step={0.01}
+          format={(v) => `${Math.round(v * 100)}%`}
+          onChange={patchFn("modalPanelAlpha")}
+        />
+        <SliderRow
+          label="Panel blur"
+          value={vars.modalPanelBlur}
+          min={0}
+          max={80}
+          step={2}
+          format={(v) => `${v}px`}
+          onChange={patchFn("modalPanelBlur")}
+        />
+      </section>
+
+      <section className={styles.section}>
         <h3 className={styles.sectionTitle}>Typography</h3>
         <DropdownRow
           label="Sans"

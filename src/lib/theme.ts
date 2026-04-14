@@ -18,6 +18,10 @@ export type ThemeVars = {
   kdeBlurEnabled: boolean;
   kdeBlurStrength: number;
 
+  modalDimAlpha: number;
+  modalPanelAlpha: number;
+  modalPanelBlur: number;
+
   fontSans: string;
   fontMono: string;
   fontSizeBase: number;
@@ -39,6 +43,10 @@ export const DEFAULT_THEME: ThemeVars = {
   windowBgOpacity: 0.7,
   kdeBlurEnabled: false,
   kdeBlurStrength: 5,
+
+  modalDimAlpha: 0.62,
+  modalPanelAlpha: 0.38,
+  modalPanelBlur: 48,
 
   fontSans:
     '"Geist", "Inter", "SF Pro Display", system-ui, sans-serif',
@@ -148,6 +156,10 @@ export function applyTheme(vars: ThemeVars): void {
   set("--glass-bg", `rgba(255, 255, 255, ${vars.glassBgOpacity})`);
 
   set("--window-bg-opacity", String(vars.windowBgOpacity));
+
+  set("--modal-dim-alpha", String(vars.modalDimAlpha));
+  set("--modal-panel-alpha", String(vars.modalPanelAlpha));
+  set("--modal-panel-blur", `${vars.modalPanelBlur}px`);
 
   set("--font-sans", vars.fontSans);
   set("--font-mono", vars.fontMono);
