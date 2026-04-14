@@ -236,7 +236,7 @@ fn read_loop(
                 let _ = app.emit(&stdout_event, StdoutChunk { data: chunk });
             }
             Err(e) => {
-                tracing::warn!(error = %e, session = %id, "pty read error");
+                log::warn!("pty read error on session {id}: {e}");
                 set_status(&handle, SessionStatus::Error);
                 let _ = app.emit(&status_event, SessionStatus::Error);
                 break;
