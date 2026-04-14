@@ -190,6 +190,7 @@ pub fn send_message(
     };
     cmd.arg("-p").arg(&message);
     cmd.args(["--output-format", "stream-json", "--verbose"]);
+    cmd.args(["--permission-mode", "bypassPermissions"]);
     if let Some(m) = &effective_model {
         cmd.args(["--model", m.as_str()]);
     }
