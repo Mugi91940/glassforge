@@ -15,7 +15,7 @@ import { createSession } from "@/lib/tauri-commands";
 import { useProjectHistoryStore } from "@/stores/projectHistoryStore";
 import { useSessionStore } from "@/stores/sessionStore";
 
-import { SessionCard } from "@/components/sessions/SessionCard";
+import { ProjectsTree } from "@/components/sessions/ProjectsTree";
 import { SkillsPanel } from "@/components/skills/SkillsPanel";
 import { UsagePanel } from "@/components/stats/UsagePanel";
 import { ProjectPicker } from "@/components/ui/ProjectPicker";
@@ -43,8 +43,6 @@ function loadSidebarWidth(): number {
 
 export function Sidebar() {
   const order = useSessionStore((s) => s.order);
-  const sessions = useSessionStore((s) => s.sessions);
-  const activeId = useSessionStore((s) => s.activeId);
   const setActive = useSessionStore((s) => s.setActive);
   const addSession = useSessionStore((s) => s.addSession);
 
@@ -274,26 +272,7 @@ export function Sidebar() {
       </div>
 
       <div className={styles.tabBody}>
-        {tab === "sessions" &&
-          (order.length === 0 ? (
-            <p className={styles.empty}>No sessions yet.</p>
-          ) : (
-            <ul className={styles.list}>
-              {order.map((id) => {
-                const s = sessions[id];
-                if (!s) return null;
-                return (
-                  <li key={id}>
-                    <SessionCard
-                      session={s}
-                      active={id === activeId}
-                      onSelect={() => setActive(id)}
-                    />
-                  </li>
-                );
-              })}
-            </ul>
-          ))}
+        {tab === "sessions" && <ProjectsTree />}
         {tab === "usage" && <UsagePanel />}
         {tab === "skills" && <SkillsPanel />}
       </div>

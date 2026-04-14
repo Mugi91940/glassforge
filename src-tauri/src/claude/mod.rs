@@ -1,6 +1,7 @@
 //! Everything that talks to the `claude` CLI: session spawn, PTY IO,
 //! streaming parser, usage/limits tracking.
 
+pub mod history;
 pub mod limits;
 pub mod parser;
 pub mod permissions;

@@ -127,6 +127,7 @@ pub fn create_session(
     registry: &SessionRegistry,
     project_path: String,
     model: Option<String>,
+    claude_session_id: Option<String>,
 ) -> Result<SessionInfo> {
     let path = PathBuf::from(&project_path);
     if !path.is_dir() {
@@ -138,7 +139,7 @@ pub fn create_session(
         id: id.clone(),
         project_path,
         model,
-        claude_session_id: None,
+        claude_session_id,
         status: SessionStatus::Idle,
         created_at: now_secs(),
     };

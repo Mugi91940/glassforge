@@ -49,6 +49,8 @@ pub fn run() {
             kill_session,
             remove_session,
             list_sessions,
+            list_project_sessions,
+            load_session_history,
             get_claude_usage,
             get_rate_limits,
             list_skills,
@@ -72,8 +74,20 @@ fn create_session(
     registry: RegistryState<'_>,
     project_path: String,
     model: Option<String>,
+    claude_session_id: Option<String>,
 ) -> Result<SessionInfo, String> {
-    claude::create_session(registry.inner(), project_path, model).map_err(|e| e.to_string())
+    claude::create_session(registry.inner(), project_path, model, claude_session_id)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn list_project_sessions() -> Result<Vec<claude::history::ProjectSummary>, String> {
+    claude::history::list_project_sessions().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn load_session_history(session_id: String) -> Result<Vec<serde_json::Value>, String> {
+    claude::history::load_session_history(&session_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

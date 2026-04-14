@@ -8,11 +8,38 @@ export async function healthCheck(): Promise<string> {
 export async function createSession(
   projectPath: string,
   model?: string | null,
+  claudeSessionId?: string | null,
 ): Promise<SessionInfo> {
   return invoke<SessionInfo>("create_session", {
     projectPath,
     model: model ?? null,
+    claudeSessionId: claudeSessionId ?? null,
   });
+}
+
+export type ClaudeSessionSummary = {
+  id: string;
+  projectPath: string;
+  firstTs: string | null;
+  lastTs: string | null;
+  messageCount: number;
+  preview: string | null;
+  model: string | null;
+};
+
+export type ClaudeProjectSummary = {
+  path: string;
+  sessions: ClaudeSessionSummary[];
+};
+
+export async function listProjectSessions(): Promise<ClaudeProjectSummary[]> {
+  return invoke<ClaudeProjectSummary[]>("list_project_sessions");
+}
+
+export async function loadSessionHistory(
+  sessionId: string,
+): Promise<unknown[]> {
+  return invoke<unknown[]>("load_session_history", { sessionId });
 }
 
 export type PermissionMode =
