@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowUp,
   Check,
@@ -128,7 +129,7 @@ export function ProjectPicker({ initialPath, onSelect, onClose }: Props) {
     }
   }
 
-  return (
+  return createPortal(
     <div
       className={styles.overlay}
       onClick={onClose}
@@ -252,6 +253,7 @@ export function ProjectPicker({ initialPath, onSelect, onClose }: Props) {
           </button>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

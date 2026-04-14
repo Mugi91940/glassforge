@@ -19,17 +19,20 @@ finish-args:
   - --env=PATH=/app/bin:/usr/bin:/home/user/.local/bin:/usr/local/bin
 
 build-options:
-  append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node20/bin
+  append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node20/bin:/run/build/glassforge/npm/bin
+  build-args:
+    - --share=network
   env:
     CARGO_HOME: /run/build/glassforge/cargo
     NPM_CONFIG_PREFIX: /run/build/glassforge/npm
+    PNPM_HOME: /run/build/glassforge/pnpm
+    PNPM_STORE_DIR: /run/build/glassforge/pnpm-store
 
 modules:
   - name: glassforge
     buildsystem: simple
     build-commands:
-      - npm config set store-dir /run/build/glassforge/pnpm-store
-      - corepack enable || npm install -g pnpm
+      - npm install -g pnpm
       - pnpm install --frozen-lockfile || pnpm install
       - pnpm build
       - cd src-tauri && cargo build --release --locked
