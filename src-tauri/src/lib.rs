@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Manager, State, WebviewWindow};
 
 mod claude;
 mod config;
@@ -44,6 +44,8 @@ pub fn run() {
             list_sessions,
             list_skills,
             install_skill,
+            set_kde_blur,
+            detect_display_server,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -91,6 +93,35 @@ fn list_skills() -> Result<Vec<Skill>, String> {
 #[tauri::command]
 fn install_skill(url: String) -> Result<Skill, String> {
     skills::install_skill_from_git(&url).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn set_kde_blur(window: WebviewWindow, enabled: bool) -> Result<(), String> {
+    #[cfg(target_os = "linux")]
+    {
+        kde::blur::apply_blur(&window, enabled).map_err(|e| e.to_string())
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = (window, enabled);
+        Err("KDE blur is only available on Linux".to_string())
+    }
+}
+
+#[tauri::command]
+fn detect_display_server() -> &'static str {
+    #[cfg(target_os = "linux")]
+    {
+        match kde::blur::detect_session_type() {
+            kde::blur::SessionType::Wayland => "wayland",
+            kde::blur::SessionType::X11 => "x11",
+            kde::blur::SessionType::Unknown => "unknown",
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        "unsupported"
+    }
 }
 
 #[cfg(test)]

@@ -29,3 +29,13 @@ export async function killSession(sessionId: string): Promise<void> {
 export async function listSessions(): Promise<SessionInfo[]> {
   return invoke<SessionInfo[]>("list_sessions");
 }
+
+export async function setKdeBlur(enabled: boolean): Promise<void> {
+  return invoke<void>("set_kde_blur", { enabled });
+}
+
+export type DisplayServer = "wayland" | "x11" | "unknown" | "unsupported";
+
+export async function detectDisplayServer(): Promise<DisplayServer> {
+  return invoke<DisplayServer>("detect_display_server");
+}

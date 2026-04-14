@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { LazyStore } from "@tauri-apps/plugin-store";
 
 import * as log from "@/lib/log";
+import { setKdeBlur } from "@/lib/tauri-commands";
 import { applyTheme, DEFAULT_THEME, PRESETS, type ThemeVars } from "@/lib/theme";
 
 const STORE_FILE = "settings.json";
@@ -39,6 +40,14 @@ async function persist(next: Persisted): Promise<void> {
   }
 }
 
+async function syncKdeBlur(enabled: boolean): Promise<void> {
+  try {
+    await setKdeBlur(enabled);
+  } catch (e) {
+    log.warn("set_kde_blur failed", e);
+  }
+}
+
 export const useThemeStore = create<ThemeState>((set, get) => ({
   vars: DEFAULT_THEME,
   presetId: "dark-glass",
@@ -56,6 +65,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
           loaded: true,
         });
         applyTheme(vars);
+        if (vars.kdeBlurEnabled) await syncKdeBlur(true);
         return;
       }
     } catch (e) {
@@ -68,23 +78,36 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   setPreset: async (id) => {
     const preset = PRESETS.find((p) => p.id === id);
     if (!preset) return;
+    const prev = get().vars;
     const next = { vars: { ...preset.vars }, presetId: id };
     set(next);
     applyTheme(next.vars);
     await persist(next);
+    if (prev.kdeBlurEnabled !== next.vars.kdeBlurEnabled) {
+      await syncKdeBlur(next.vars.kdeBlurEnabled);
+    }
   },
 
   patch: async (delta) => {
-    const next = { vars: { ...get().vars, ...delta }, presetId: "custom" };
+    const prev = get().vars;
+    const next = { vars: { ...prev, ...delta }, presetId: "custom" };
     set(next);
     applyTheme(next.vars);
     await persist(next);
+    if (
+      delta.kdeBlurEnabled !== undefined &&
+      delta.kdeBlurEnabled !== prev.kdeBlurEnabled
+    ) {
+      await syncKdeBlur(delta.kdeBlurEnabled);
+    }
   },
 
   reset: async () => {
+    const prev = get().vars;
     const next = { vars: DEFAULT_THEME, presetId: "dark-glass" };
     set(next);
     applyTheme(DEFAULT_THEME);
     await persist(next);
+    if (prev.kdeBlurEnabled) await syncKdeBlur(false);
   },
 }));
