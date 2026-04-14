@@ -1,0 +1,61 @@
+.root {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.textarea {
+  flex: 1;
+  resize: none;
+  min-height: 2.6rem;
+  max-height: 10rem;
+  padding: 0.65rem 0.85rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.textarea:focus {
+  border-color: color-mix(in srgb, var(--accent-primary) 60%, transparent);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.textarea:disabled {
+  opacity: 0.5;
+}
+
+.sendButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid
+    color-mix(in srgb, var(--accent-primary) 40%, transparent);
+  background: color-mix(in srgb, var(--accent-primary) 22%, transparent);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.sendButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-primary) 36%, transparent);
+}
+
+.sendButton:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.sendButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

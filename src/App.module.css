@@ -14,71 +14,38 @@
   pointer-events: none;
   background:
     radial-gradient(
-      var(--accent-glow-radius) var(--accent-glow-radius) at 20% 10%,
-      color-mix(in srgb, var(--accent-primary) calc(var(--accent-glow-opacity) * 100%), transparent),
+      var(--accent-glow-radius) var(--accent-glow-radius) at 15% 10%,
+      color-mix(
+        in srgb,
+        var(--accent-primary) calc(var(--accent-glow-opacity) * 100%),
+        transparent
+      ),
       transparent 70%
     ),
     radial-gradient(
-      var(--accent-glow-radius) var(--accent-glow-radius) at 80% 90%,
-      color-mix(in srgb, var(--accent-secondary) calc(var(--accent-glow-opacity) * 100%), transparent),
+      var(--accent-glow-radius) var(--accent-glow-radius) at 85% 85%,
+      color-mix(
+        in srgb,
+        var(--accent-secondary) calc(var(--accent-glow-opacity) * 100%),
+        transparent
+      ),
       transparent 70%
     );
   z-index: 0;
 }
 
-.main {
+.chrome {
   position: relative;
   z-index: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  width: 100%;
   height: 100%;
-  padding: 2rem;
-  gap: 2rem;
 }
 
-.header {
-  text-align: center;
+.body {
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.title {
-  margin: 0;
-  font-size: 2.5rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  background: linear-gradient(
-    135deg,
-    var(--text-primary) 0%,
-    var(--accent-primary) 100%
-  );
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
-}
-
-.subtitle {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 1rem;
-}
-
-.card {
-  padding: 1.5rem 2rem;
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-}
-
-.status {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-  font-family: var(--font-mono);
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
