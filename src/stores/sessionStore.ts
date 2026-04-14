@@ -7,9 +7,29 @@ import type {
   SessionStatus,
 } from "@/lib/types";
 
+export type SessionUsage = {
+  bytesIn: number;
+  bytesOut: number;
+  messages: number;
+  startedAt: number;
+  lastActivityAt: number;
+};
+
+function emptyUsage(): SessionUsage {
+  const now = Date.now();
+  return {
+    bytesIn: 0,
+    bytesOut: 0,
+    messages: 0,
+    startedAt: now,
+    lastActivityAt: now,
+  };
+}
+
 type SessionState = {
   sessions: Record<string, SessionInfo>;
   entries: Record<string, SessionEntry[]>;
+  usage: Record<string, SessionUsage>;
   activeId: string | null;
   order: string[];
 
@@ -26,6 +46,7 @@ type SessionState = {
 export const useSessionStore = create<SessionState>((set) => ({
   sessions: {},
   entries: {},
+  usage: {},
   activeId: null,
   order: [],
 
@@ -33,24 +54,22 @@ export const useSessionStore = create<SessionState>((set) => ({
     set(() => {
       const sessions: Record<string, SessionInfo> = {};
       const entries: Record<string, SessionEntry[]> = {};
+      const usage: Record<string, SessionUsage> = {};
       const order: string[] = [];
       for (const info of list) {
         sessions[info.id] = info;
         entries[info.id] = [];
+        usage[info.id] = emptyUsage();
         order.push(info.id);
       }
-      return {
-        sessions,
-        entries,
-        order,
-        activeId: order[0] ?? null,
-      };
+      return { sessions, entries, usage, order, activeId: order[0] ?? null };
     }),
 
   addSession: (info) =>
     set((s) => ({
       sessions: { ...s.sessions, [info.id]: info },
       entries: { ...s.entries, [info.id]: s.entries[info.id] ?? [] },
+      usage: { ...s.usage, [info.id]: s.usage[info.id] ?? emptyUsage() },
       order: s.order.includes(info.id) ? s.order : [...s.order, info.id],
       activeId: s.activeId ?? info.id,
     })),
@@ -68,36 +87,51 @@ export const useSessionStore = create<SessionState>((set) => ({
       if (!cleaned) return {};
       const existing = s.entries[id] ?? [];
       const last = existing[existing.length - 1];
+
+      const prevUsage = s.usage[id] ?? emptyUsage();
+      const nextUsage: SessionUsage = {
+        ...prevUsage,
+        bytesIn: prevUsage.bytesIn + cleaned.length,
+        lastActivityAt: Date.now(),
+      };
+
+      let nextEntries: SessionEntry[];
       if (last && last.kind === "stdout") {
         const merged: SessionEntry = { ...last, text: last.text + cleaned };
-        return {
-          entries: {
-            ...s.entries,
-            [id]: [...existing.slice(0, -1), merged],
-          },
-        };
+        nextEntries = [...existing.slice(0, -1), merged];
+      } else {
+        nextEntries = [
+          ...existing,
+          { kind: "stdout", ts: Date.now(), text: cleaned },
+        ];
       }
+
       return {
-        entries: {
-          ...s.entries,
-          [id]: [
-            ...existing,
-            { kind: "stdout", ts: Date.now(), text: cleaned },
-          ],
-        },
+        entries: { ...s.entries, [id]: nextEntries },
+        usage: { ...s.usage, [id]: nextUsage },
       };
     }),
 
   appendUser: (id, text) =>
-    set((s) => ({
-      entries: {
-        ...s.entries,
-        [id]: [
-          ...(s.entries[id] ?? []),
-          { kind: "user", ts: Date.now(), text },
-        ],
-      },
-    })),
+    set((s) => {
+      const prevUsage = s.usage[id] ?? emptyUsage();
+      const nextUsage: SessionUsage = {
+        ...prevUsage,
+        bytesOut: prevUsage.bytesOut + text.length,
+        messages: prevUsage.messages + 1,
+        lastActivityAt: Date.now(),
+      };
+      return {
+        entries: {
+          ...s.entries,
+          [id]: [
+            ...(s.entries[id] ?? []),
+            { kind: "user", ts: Date.now(), text },
+          ],
+        },
+        usage: { ...s.usage, [id]: nextUsage },
+      };
+    }),
 
   appendSystem: (id, text) =>
     set((s) => ({
@@ -116,11 +150,13 @@ export const useSessionStore = create<SessionState>((set) => ({
     set((s) => {
       const sessions = { ...s.sessions };
       const entries = { ...s.entries };
+      const usage = { ...s.usage };
       delete sessions[id];
       delete entries[id];
+      delete usage[id];
       const order = s.order.filter((x) => x !== id);
       const nextActive =
         s.activeId === id ? (order[0] ?? null) : s.activeId;
-      return { sessions, entries, order, activeId: nextActive };
+      return { sessions, entries, usage, order, activeId: nextActive };
     }),
 }));

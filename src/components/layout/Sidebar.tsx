@@ -1,13 +1,16 @@
 import { useState } from "react";
-import { Plus, Terminal } from "lucide-react";
+import { BarChart3, Plus, Terminal } from "lucide-react";
 
 import * as log from "@/lib/log";
 import { createSession } from "@/lib/tauri-commands";
 import { useSessionStore } from "@/stores/sessionStore";
 
 import { SessionCard } from "@/components/sessions/SessionCard";
+import { UsagePanel } from "@/components/stats/UsagePanel";
 
 import styles from "./Sidebar.module.css";
+
+type Tab = "sessions" | "usage";
 
 export function Sidebar() {
   const order = useSessionStore((s) => s.order);
@@ -16,9 +19,8 @@ export function Sidebar() {
   const setActive = useSessionStore((s) => s.setActive);
   const addSession = useSessionStore((s) => s.addSession);
 
-  const [projectPath, setProjectPath] = useState<string>(
-    () => (window as unknown as { __HOME__?: string }).__HOME__ ?? "",
-  );
+  const [tab, setTab] = useState<Tab>("sessions");
+  const [projectPath, setProjectPath] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -71,32 +73,49 @@ export function Sidebar() {
         {err ? <p className={styles.error}>{err}</p> : null}
       </div>
 
-      <div className={styles.divider} />
-
-      <div className={styles.sessionList}>
-        <div className={styles.listHeader}>
+      <div className={styles.tabs}>
+        <button
+          type="button"
+          className={`${styles.tab} ${tab === "sessions" ? styles.tabActive : ""}`}
+          onClick={() => setTab("sessions")}
+        >
           <Terminal size={12} />
           <span>Sessions</span>
-          <span className={styles.count}>{order.length}</span>
-        </div>
-        {order.length === 0 ? (
-          <p className={styles.empty}>No sessions yet.</p>
+          <span className={styles.tabCount}>{order.length}</span>
+        </button>
+        <button
+          type="button"
+          className={`${styles.tab} ${tab === "usage" ? styles.tabActive : ""}`}
+          onClick={() => setTab("usage")}
+        >
+          <BarChart3 size={12} />
+          <span>Usage</span>
+        </button>
+      </div>
+
+      <div className={styles.tabBody}>
+        {tab === "sessions" ? (
+          order.length === 0 ? (
+            <p className={styles.empty}>No sessions yet.</p>
+          ) : (
+            <ul className={styles.list}>
+              {order.map((id) => {
+                const s = sessions[id];
+                if (!s) return null;
+                return (
+                  <li key={id}>
+                    <SessionCard
+                      session={s}
+                      active={id === activeId}
+                      onSelect={() => setActive(id)}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          )
         ) : (
-          <ul className={styles.list}>
-            {order.map((id) => {
-              const s = sessions[id];
-              if (!s) return null;
-              return (
-                <li key={id}>
-                  <SessionCard
-                    session={s}
-                    active={id === activeId}
-                    onSelect={() => setActive(id)}
-                  />
-                </li>
-              );
-            })}
-          </ul>
+          <UsagePanel />
         )}
       </div>
     </aside>

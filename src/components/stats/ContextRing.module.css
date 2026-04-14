@@ -1,0 +1,66 @@
+.root {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.svg {
+  position: absolute;
+  inset: 0;
+  transition: color 0.25s ease;
+}
+
+.track {
+  stroke: rgba(255, 255, 255, 0.08);
+}
+
+.fill {
+  stroke: currentColor;
+  transition: stroke-dashoffset 0.4s ease;
+}
+
+.safe {
+  color: var(--accent-secondary);
+  filter: drop-shadow(
+    0 0 6px color-mix(in srgb, var(--accent-secondary) 50%, transparent)
+  );
+}
+
+.warning {
+  color: var(--accent-warning);
+  filter: drop-shadow(
+    0 0 6px color-mix(in srgb, var(--accent-warning) 50%, transparent)
+  );
+}
+
+.danger {
+  color: var(--accent-danger);
+  filter: drop-shadow(
+    0 0 6px color-mix(in srgb, var(--accent-danger) 50%, transparent)
+  );
+}
+
+.label {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  font-family: var(--font-mono);
+  line-height: 1;
+  pointer-events: none;
+}
+
+.pct {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sub {
+  font-size: 0.55rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
