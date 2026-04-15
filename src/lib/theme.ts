@@ -29,24 +29,24 @@ export type ThemeVars = {
 };
 
 export const DEFAULT_THEME: ThemeVars = {
-  bgPrimary: "#0c0a1a",
+  bgPrimary: "#0a0319",
 
-  accentPrimary: "#818cf8",
-  accentSecondary: "#34d399",
-  accentGlowOpacity: 0.08,
-  accentGlowRadius: 500,
+  accentPrimary: "#f472b6",
+  accentSecondary: "#22d3ee",
+  accentGlowOpacity: 0.14,
+  accentGlowRadius: 608,
 
-  glassBlur: 40,
-  glassSaturation: 1.6,
+  glassBlur: 48,
+  glassSaturation: 1.0,
   glassBgOpacity: 0.04,
 
   windowBgOpacity: 0.7,
   kdeBlurEnabled: false,
   kdeBlurStrength: 5,
 
-  modalDimAlpha: 0.62,
+  modalDimAlpha: 0.26,
   modalPanelAlpha: 0.38,
-  modalPanelBlur: 48,
+  modalPanelBlur: 16,
 
   fontSans:
     '"Geist", "Inter", "SF Pro Display", system-ui, sans-serif',

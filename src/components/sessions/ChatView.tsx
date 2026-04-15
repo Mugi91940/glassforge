@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ChevronDown, ChevronRight, GitBranch, Wrench } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Copy, GitBranch, Wrench } from "lucide-react";
 
 import * as log from "@/lib/log";
 import {
   estimateTokens,
   formatCost,
   formatTokens,
+  modelFamily,
+  prettyModelName,
   resolvePricing,
 } from "@/lib/pricing";
 import {
@@ -27,7 +29,13 @@ import styles from "./ChatView.module.css";
 const MODEL_OPTIONS: DropdownOption<string | null>[] = [
   { label: "Default", value: null },
   { label: "Opus 4.6", value: "opus" },
+  // `opus[1m]` / `sonnet[1m]` are claude-code's own 1M-context aliases
+  // (confirmed via `strings` on the CLI + live smoke test). Passing them
+  // through `--model` makes claude itself run on the 1M window — no
+  // guessing, no observation needed. Haiku has no 1M variant.
+  { label: "Opus 4.6 (1M)", value: "opus[1m]" },
   { label: "Sonnet 4.6", value: "sonnet" },
+  { label: "Sonnet 4.6 (1M)", value: "sonnet[1m]" },
   { label: "Haiku 4.5", value: "haiku" },
 ];
 
@@ -60,6 +68,7 @@ export function ChatView({ session, entries }: Props) {
   const setPermissionMode = usePreferencesStore(
     (s) => s.setPermissionMode,
   );
+  const longContextScope = usePreferencesStore((s) => s.longContextScope);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const [git, setGit] = useState<GitInfo | null>(null);
@@ -81,19 +90,69 @@ export function ChatView({ session, entries }: Props) {
     el.scrollTop = el.scrollHeight;
   }, [entries]);
 
+  // When the session is on Default and claude has reported what model it
+  // actually ran on, surface that in the dropdown label so the user sees
+  // "Default (Opus 4.6 1M)" instead of a mystery "Default".
+  const modelOptions = useMemo<DropdownOption<string | null>[]>(() => {
+    if (session.model !== null || !usage?.detectedModel) return MODEL_OPTIONS;
+    return MODEL_OPTIONS.map((opt) =>
+      opt.value === null
+        ? {
+            ...opt,
+            label: `Default (${prettyModelName(usage.detectedModel!)})`,
+          }
+        : opt,
+    );
+  }, [session.model, usage?.detectedModel]);
+
   const stats = useMemo(() => {
-    const pricing = resolvePricing(session.model);
+    // Prefer the exact model string claude reported on its last turn —
+    // the user-facing dropdown carries short aliases, so falling back to
+    // `detectedModel` picks up the precise build (and its context window).
+    const effectiveModel = session.model ?? usage?.detectedModel ?? null;
+    const pricing = resolvePricing(effectiveModel);
     const hasReal = usage && (usage.inputTokens > 0 || usage.outputTokens > 0);
     const inT = hasReal ? usage.inputTokens : usage ? estimateTokens(usage.bytesIn) : 0;
     const outT = hasReal ? usage.outputTokens : usage ? estimateTokens(usage.bytesOut) : 0;
+    // Hold the ring at 0% until we have a real measurement from claude.
+    // Before the first assistant reply the context window isn't even
+    // known (opus vs sonnet vs 1M), so any byte-based estimate would
+    // show an incoherent percentage against the wrong denominator.
+    // Once `currentContextTokens` lands on the first turn, the ring
+    // snaps to the accurate value with the detected model's window.
+    const ctxUsed = usage?.currentContextTokens ?? 0;
+    // Resolution priority for the context window:
+    //   1. `reportedContextWindow` from the result event → ground truth
+    //   2. User preference "1M context scope" per model family
+    //   3. Observation: maxObserved exceeds 95% of the pricing window
+    //   4. Pricing table entry (default 200k)
+    const reported = usage?.reportedContextWindow;
+    let total: number;
+    if (reported && reported > 0) {
+      total = reported;
+    } else {
+      const maxSeen = usage?.maxObservedContextTokens ?? 0;
+      const family = modelFamily(effectiveModel);
+      const familyHas1m =
+        family === "opus"
+          ? longContextScope === "opus" || longContextScope === "opus-sonnet"
+          : family === "sonnet"
+            ? longContextScope === "opus-sonnet"
+            : false;
+      const observed1m = maxSeen > pricing.contextWindow * 0.95;
+      const needs1m = familyHas1m || observed1m;
+      total = needs1m && pricing.contextWindow < 1_000_000
+        ? 1_000_000
+        : pricing.contextWindow;
+    }
     return {
       inT,
       outT,
-      used: inT + outT,
-      total: pricing.contextWindow,
+      used: ctxUsed,
+      total,
       cost: usage?.totalCostUsd ?? 0,
     };
-  }, [usage, session.model]);
+  }, [usage, session.model, longContextScope]);
 
   return (
     <div className={styles.root}>
@@ -123,7 +182,7 @@ export function ChatView({ session, entries }: Props) {
             <Dropdown
               size="sm"
               ariaLabel="Model"
-              options={MODEL_OPTIONS}
+              options={modelOptions}
               value={session.model ?? null}
               onChange={(v) => updateSession(session.id, { model: v })}
             />
@@ -155,7 +214,7 @@ export function ChatView({ session, entries }: Props) {
           used={stats.used}
           total={stats.total}
           size={54}
-          label="ctx"
+          modelName={usage?.detectedModel ?? session.model ?? null}
         />
       </div>
 
@@ -184,6 +243,50 @@ export function ChatView({ session, entries }: Props) {
   );
 }
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const onClick = useCallback(() => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }).catch((e) => log.warn("clipboard write failed", e));
+  }, [text]);
+
+  return (
+    <button
+      type="button"
+      className={styles.copyBtn}
+      onClick={onClick}
+      title="Copy"
+    >
+      {copied ? <Check size={13} /> : <Copy size={13} />}
+    </button>
+  );
+}
+
+function extractText(node: React.ReactNode): string {
+  if (typeof node === "string") return node;
+  if (typeof node === "number") return String(node);
+  if (!node) return "";
+  if (Array.isArray(node)) return node.map(extractText).join("");
+  if (typeof node === "object" && "props" in node) {
+    return extractText((node as React.ReactElement<{ children?: React.ReactNode }>).props.children);
+  }
+  return "";
+}
+
+const mdComponents: Components = {
+  pre({ children }) {
+    const text = extractText(children);
+    return (
+      <div className={styles.codeBlockWrap}>
+        <pre>{children}</pre>
+        {text.trim() ? <CopyButton text={text} /> : null}
+      </div>
+    );
+  },
+};
+
 function entryKey(entry: ChatEntry, i: number): string {
   if (entry.kind === "tool") return `tool-${entry.id}-${i}`;
   return `${entry.kind}-${entry.ts}-${i}`;
@@ -194,7 +297,7 @@ function Entry({ entry }: { entry: ChatEntry }) {
     return (
       <div className={`${styles.entry} ${styles.userEntry}`}>
         <div className={styles.markdown}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
             {entry.text}
           </ReactMarkdown>
         </div>
@@ -205,7 +308,7 @@ function Entry({ entry }: { entry: ChatEntry }) {
     return (
       <div className={`${styles.entry} ${styles.assistantEntry}`}>
         <div className={styles.markdown}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
             {entry.text}
           </ReactMarkdown>
         </div>
@@ -281,15 +384,21 @@ function ToolCall({
           {entry.input !== undefined ? (
             <>
               <div className={styles.toolLabel}>input</div>
-              <pre className={styles.toolCode}>
-                {JSON.stringify(entry.input, null, 2)}
-              </pre>
+              <div className={styles.codeBlockWrap}>
+                <pre className={styles.toolCode}>
+                  {JSON.stringify(entry.input, null, 2)}
+                </pre>
+                <CopyButton text={JSON.stringify(entry.input, null, 2)} />
+              </div>
             </>
           ) : null}
           {entry.result ? (
             <>
               <div className={styles.toolLabel}>result</div>
-              <pre className={styles.toolCode}>{entry.result}</pre>
+              <div className={styles.codeBlockWrap}>
+                <pre className={styles.toolCode}>{entry.result}</pre>
+                <CopyButton text={entry.result} />
+              </div>
             </>
           ) : null}
         </div>

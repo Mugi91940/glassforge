@@ -12,10 +12,30 @@ import type {
 export type SessionUsage = {
   bytesIn: number;
   bytesOut: number;
+  // Cumulative counters across every turn — useful for billing and
+  // "total tokens sent/received" stats, but NOT for the context ring.
   inputTokens: number;
   outputTokens: number;
   cacheReadTokens: number;
   cacheCreationTokens: number;
+  // Size of the conversation context on the most recent assistant turn.
+  // Each turn's `input_tokens` already includes the entire prior history,
+  // so the current context window usage = last turn only, not a sum.
+  currentContextTokens: number;
+  // Monotonic high-water mark of observed context size across every
+  // turn. Used for window auto-detection: claude-code doesn't mark the
+  // 1M beta in the model string, so the only way to learn we're on 1M
+  // is to observe a context that physically exceeds the 200k ceiling.
+  maxObservedContextTokens: number;
+  // Full model string as reported by claude on its latest assistant turn
+  // (e.g. "claude-opus-4-6-20260415"). Kept here, NOT on SessionInfo,
+  // because SessionInfo.model is bound to the user-facing dropdown and
+  // mixing the two caused the dropdown to display an empty value.
+  detectedModel?: string;
+  // Authoritative context window from the `result` event's
+  // `modelUsage.contextWindow` — if available, overrides every other
+  // heuristic (pricing lookup, observation, preference).
+  reportedContextWindow?: number;
   messages: number;
   totalCostUsd: number;
   startedAt: number;
@@ -31,6 +51,8 @@ function emptyUsage(): SessionUsage {
     outputTokens: 0,
     cacheReadTokens: 0,
     cacheCreationTokens: 0,
+    currentContextTokens: 0,
+    maxObservedContextTokens: 0,
     messages: 0,
     totalCostUsd: 0,
     startedAt: now,
@@ -219,7 +241,19 @@ export const useSessionStore = create<SessionState>((set) => ({
       }
 
       if (t === "system") {
-        // Mostly init metadata; we capture it silently.
+        // Claude's init frame carries its own session id, which we need
+        // so the historical-vs-live dedup in SessionsForProject can match
+        // and the delete button can find the JSONL to remove.
+        const sid = (event as { session_id?: string }).session_id;
+        const current = s.sessions[id];
+        if (sid && current && current.claude_session_id !== sid) {
+          return {
+            sessions: {
+              ...s.sessions,
+              [id]: { ...current, claude_session_id: sid },
+            },
+          };
+        }
         return {};
       }
 
@@ -239,6 +273,10 @@ export const useSessionStore = create<SessionState>((set) => ({
                 ? {
                     input_tokens: msg.usage.input_tokens ?? 0,
                     output_tokens: msg.usage.output_tokens ?? 0,
+                    cache_read_input_tokens:
+                      msg.usage.cache_read_input_tokens ?? 0,
+                    cache_creation_input_tokens:
+                      msg.usage.cache_creation_input_tokens ?? 0,
                   }
                 : undefined,
             });
@@ -268,10 +306,20 @@ export const useSessionStore = create<SessionState>((set) => ({
                 acc + (e.kind === "assistant" ? e.text.length : 0),
               0,
             );
+        const hasUsage = msg.usage != null;
         const realIn = msg.usage?.input_tokens ?? 0;
         const realOut = msg.usage?.output_tokens ?? 0;
         const cacheRead = msg.usage?.cache_read_input_tokens ?? 0;
         const cacheCreate = msg.usage?.cache_creation_input_tokens ?? 0;
+        // Current context window usage = this turn's total. input_tokens
+        // already includes the whole conversation history + cached blocks,
+        // so summing across turns would massively over-count. If the
+        // event has no usage block at all (partial stream frame), keep
+        // the previous value rather than stomping it with zeroes.
+        const turnContext = realIn + realOut + cacheRead + cacheCreate;
+        const currentContext = hasUsage
+          ? turnContext
+          : prevUsage.currentContextTokens;
         return {
           entries: { ...s.entries, [id]: next },
           usage: {
@@ -284,6 +332,12 @@ export const useSessionStore = create<SessionState>((set) => ({
               cacheReadTokens: prevUsage.cacheReadTokens + cacheRead,
               cacheCreationTokens:
                 prevUsage.cacheCreationTokens + cacheCreate,
+              currentContextTokens: currentContext,
+              maxObservedContextTokens: Math.max(
+                prevUsage.maxObservedContextTokens,
+                currentContext,
+              ),
+              detectedModel: msg.model ?? prevUsage.detectedModel,
             },
           },
         };
@@ -342,13 +396,59 @@ export const useSessionStore = create<SessionState>((set) => ({
       }
 
       if (t === "result") {
+        type IterationUsage = {
+          input_tokens?: number;
+          output_tokens?: number;
+          cache_read_input_tokens?: number;
+          cache_creation_input_tokens?: number;
+        };
         const r = event as {
           cost_usd?: number;
           total_cost_usd?: number;
           duration_ms?: number;
           num_turns?: number;
+          usage?: IterationUsage & {
+            iterations?: IterationUsage[];
+          };
+          modelUsage?: Record<
+            string,
+            { contextWindow?: number; [k: string]: unknown }
+          >;
         };
         const cost = r.total_cost_usd ?? r.cost_usd;
+        // The top-level `usage` in the result event is CUMULATIVE across
+        // every API call in the invocation. But `usage.iterations` is an
+        // array with one entry per API call — the LAST element = the
+        // final call = the current context state. Use that for the ring.
+        const iters = r.usage?.iterations;
+        const lastIter =
+          iters && iters.length > 0 ? iters[iters.length - 1] : null;
+        let contextUpdate: Partial<SessionUsage> = {};
+        if (lastIter) {
+          const lIn = lastIter.input_tokens ?? 0;
+          const lOut = lastIter.output_tokens ?? 0;
+          const lCacheR = lastIter.cache_read_input_tokens ?? 0;
+          const lCacheC = lastIter.cache_creation_input_tokens ?? 0;
+          const ctx = lIn + lOut + lCacheR + lCacheC;
+          if (ctx > 0) {
+            contextUpdate = {
+              currentContextTokens: ctx,
+              maxObservedContextTokens: Math.max(
+                prevUsage.maxObservedContextTokens,
+                ctx,
+              ),
+            };
+          }
+        }
+        let reportedWindow: number | undefined;
+        if (r.modelUsage) {
+          for (const entry of Object.values(r.modelUsage)) {
+            if (entry.contextWindow && entry.contextWindow > 0) {
+              reportedWindow = entry.contextWindow;
+              break;
+            }
+          }
+        }
         return {
           entries: {
             ...s.entries,
@@ -368,6 +468,10 @@ export const useSessionStore = create<SessionState>((set) => ({
             [id]: {
               ...touchActivity(prevUsage),
               totalCostUsd: prevUsage.totalCostUsd + (cost ?? 0),
+              ...contextUpdate,
+              ...(reportedWindow
+                ? { reportedContextWindow: reportedWindow }
+                : {}),
             },
           },
         };
@@ -433,7 +537,59 @@ export const useSessionStore = create<SessionState>((set) => ({
     })),
 
   seedEntries: (sessionId, nextEntries) =>
-    set((s) => ({
-      entries: { ...s.entries, [sessionId]: nextEntries },
-    })),
+    set((s) => {
+      // Replay the assistant turns' usage counters so the context ring
+      // reflects the real state of a resumed conversation instead of
+      // starting from zero.
+      let inputTokens = 0;
+      let outputTokens = 0;
+      let cacheReadTokens = 0;
+      let cacheCreationTokens = 0;
+      let currentContextTokens = 0;
+      let maxObservedContextTokens = 0;
+      let detectedModel: string | undefined;
+      for (const e of nextEntries) {
+        if (e.kind === "assistant") {
+          if (e.model) detectedModel = e.model;
+          if (e.usage) {
+            const inTok = e.usage.input_tokens ?? 0;
+            const outTok = e.usage.output_tokens ?? 0;
+            const cacheR = e.usage.cache_read_input_tokens ?? 0;
+            const cacheC = e.usage.cache_creation_input_tokens ?? 0;
+            inputTokens += inTok;
+            outputTokens += outTok;
+            cacheReadTokens += cacheR;
+            cacheCreationTokens += cacheC;
+            // Overwrite so the LAST assistant turn wins — that's the
+            // current conversation context size.
+            const turnTotal = inTok + outTok + cacheR + cacheC;
+            currentContextTokens = turnTotal;
+            if (turnTotal > maxObservedContextTokens) {
+              maxObservedContextTokens = turnTotal;
+            }
+          }
+        }
+      }
+      const prev = s.usage[sessionId] ?? emptyUsage();
+      return {
+        entries: { ...s.entries, [sessionId]: nextEntries },
+        usage: {
+          ...s.usage,
+          [sessionId]: {
+            ...prev,
+            inputTokens,
+            outputTokens,
+            cacheReadTokens,
+            cacheCreationTokens,
+            currentContextTokens,
+            maxObservedContextTokens: Math.max(
+              prev.maxObservedContextTokens,
+              maxObservedContextTokens,
+            ),
+            detectedModel: detectedModel ?? prev.detectedModel,
+            lastActivityAt: Date.now(),
+          },
+        },
+      };
+    }),
 }));

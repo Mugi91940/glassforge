@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 
+import { PreferencesEditor } from "./PreferencesEditor";
 import { ThemeEditor } from "./ThemeEditor";
 import styles from "./SettingsPanel.module.css";
 
@@ -28,6 +29,7 @@ export function SettingsPanel({ onClose }: Props) {
           </button>
         </header>
         <div className={styles.body}>
+          <PreferencesEditor />
           <ThemeEditor />
         </div>
       </aside>

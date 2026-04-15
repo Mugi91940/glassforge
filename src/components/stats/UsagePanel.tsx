@@ -6,8 +6,11 @@ import {
   estimateTokens,
   formatCost,
   formatTokens,
+  modelFamily,
+  prettyModelName,
   resolvePricing,
 } from "@/lib/pricing";
+import { usePreferencesStore } from "@/stores/preferencesStore";
 import {
   getClaudeUsage,
   getRateLimits,
@@ -59,6 +62,7 @@ export function UsagePanel() {
   const order = useSessionStore((s) => s.order);
   const sessions = useSessionStore((s) => s.sessions);
   const liveUsage = useSessionStore((s) => s.usage);
+  const longContextScope = usePreferencesStore((s) => s.longContextScope);
 
   const [snap, setSnap] = useState<ClaudeUsageSnapshot>(EMPTY_SNAPSHOT);
   const [loading, setLoading] = useState(false);
@@ -211,29 +215,69 @@ export function UsagePanel() {
               const s = sessions[id];
               const u = liveUsage[id];
               if (!s || !u) return null;
-              const inT = estimateTokens(u.bytesIn);
-              const outT = estimateTokens(u.bytesOut);
-              const p = resolvePricing(s.model ?? null);
+              const hasReal =
+                u.inputTokens > 0 || u.outputTokens > 0;
+              const inT = hasReal
+                ? u.inputTokens
+                : estimateTokens(u.bytesIn);
+              const outT = hasReal
+                ? u.outputTokens
+                : estimateTokens(u.bytesOut);
+              const effectiveModel =
+                s.model ?? u.detectedModel ?? null;
+              const p = resolvePricing(effectiveModel);
+              const ctxUsed = u.currentContextTokens;
+              // Same window resolution as ChatView: reported > pref > observed > pricing
+              const reported = u.reportedContextWindow;
+              let ctxTotal: number;
+              if (reported && reported > 0) {
+                ctxTotal = reported;
+              } else {
+                const fam = modelFamily(effectiveModel);
+                const scope = longContextScope;
+                const famHas1m =
+                  fam === "opus"
+                    ? scope === "opus" ||
+                      scope === "opus-sonnet"
+                    : fam === "sonnet"
+                      ? scope === "opus-sonnet"
+                      : false;
+                const obs1m =
+                  u.maxObservedContextTokens >
+                  p.contextWindow * 0.95;
+                ctxTotal =
+                  (famHas1m || obs1m) &&
+                  p.contextWindow < 1_000_000
+                    ? 1_000_000
+                    : p.contextWindow;
+              }
+              const modelLabel = u.detectedModel
+                ? prettyModelName(u.detectedModel)
+                : s.model ?? "default";
               return (
                 <li key={id} className={styles.listItem}>
                   <div className={styles.rowHeader}>
                     <span className={styles.name}>
-                      {s.project_path.split("/").filter(Boolean).pop() ?? "—"}
+                      {s.project_path
+                        .split("/")
+                        .filter(Boolean)
+                        .pop() ?? "—"}
                     </span>
                     <span className={styles.model}>
-                      {s.model ?? "default"}
+                      {modelLabel}
                     </span>
                   </div>
                   <div className={styles.rowStats}>
                     <span>
-                      in {formatTokens(inT)} · out {formatTokens(outT)}
+                      in {formatTokens(inT)} · out{" "}
+                      {formatTokens(outT)}
                     </span>
                     <span>{formatCost(u.totalCostUsd)}</span>
                   </div>
                   <LimitsBar
                     label="Context"
-                    used={inT + outT}
-                    total={p.contextWindow}
+                    used={ctxUsed}
+                    total={ctxTotal}
                     format={(a, b) =>
                       `${formatTokens(a)} / ${formatTokens(b)}`
                     }

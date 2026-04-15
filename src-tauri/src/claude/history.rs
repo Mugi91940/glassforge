@@ -315,6 +315,22 @@ pub fn load_session_history(session_id: &str) -> Result<Vec<Value>> {
                     .get("model")
                     .and_then(|v| v.as_str())
                     .map(|s| s.to_string());
+                // Preserve the per-turn usage counters so the frontend can
+                // seed its context ring when resuming a session.
+                let usage = message.get("usage").map(|u| {
+                    json!({
+                        "input_tokens": u.get("input_tokens").and_then(|v| v.as_u64()).unwrap_or(0),
+                        "output_tokens": u.get("output_tokens").and_then(|v| v.as_u64()).unwrap_or(0),
+                        "cache_read_input_tokens": u
+                            .get("cache_read_input_tokens")
+                            .and_then(|v| v.as_u64())
+                            .unwrap_or(0),
+                        "cache_creation_input_tokens": u
+                            .get("cache_creation_input_tokens")
+                            .and_then(|v| v.as_u64())
+                            .unwrap_or(0),
+                    })
+                });
                 let Some(content) = message.get("content").and_then(|v| v.as_array()) else {
                     continue;
                 };
@@ -327,10 +343,12 @@ pub fn load_session_history(session_id: &str) -> Result<Vec<Value>> {
                                     "ts": ts,
                                     "text": s,
                                 });
+                                let obj_mut = obj.as_object_mut().unwrap();
                                 if let Some(m) = &model {
-                                    obj.as_object_mut()
-                                        .unwrap()
-                                        .insert("model".into(), json!(m));
+                                    obj_mut.insert("model".into(), json!(m));
+                                }
+                                if let Some(u) = &usage {
+                                    obj_mut.insert("usage".into(), u.clone());
                                 }
                                 entries.push(obj);
                             }

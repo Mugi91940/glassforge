@@ -332,6 +332,43 @@
   font-size: inherit;
 }
 
+.codeBlockWrap {
+  position: relative;
+}
+
+.codeBlockWrap:hover > .copyBtn,
+.codeBlockWrap > .copyBtn:focus-visible {
+  opacity: 1;
+}
+
+.copyBtn {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--glass-border);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--text-secondary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.copyBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.copyBtn:active {
+  background: rgba(255, 255, 255, 0.15);
+}
+
 .toolEntry {
   align-self: stretch;
   padding: 0.4rem 0.6rem;

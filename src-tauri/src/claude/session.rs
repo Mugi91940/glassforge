@@ -155,6 +155,7 @@ pub fn create_session(
     Ok(info)
 }
 
+#[allow(clippy::too_many_arguments)] // parallel to the tauri command — split into a struct when we grow a 10th knob
 pub fn send_message(
     registry: &Arc<SessionRegistry>,
     broker: &Arc<crate::claude::permissions::PermissionBroker>,
@@ -163,6 +164,7 @@ pub fn send_message(
     message: String,
     model_override: Option<String>,
     permission_mode: Option<String>,
+    small_fast_model: Option<String>,
 ) -> Result<()> {
     let handle = registry
         .get(id)
@@ -201,6 +203,19 @@ pub fn send_message(
         (mode.clone(), None, None)
     };
 
+    // Route claude's background tasks (auto-compact, summaries, cheap
+    // tool thinking) through a cheaper model than the user's main pick,
+    // so those operations don't burn Opus / Sonnet usage on things where
+    // a small model is plenty. `ANTHROPIC_SMALL_FAST_MODEL` is the
+    // official claude-code env var for this (confirmed via `strings` on
+    // the binary). When the caller passes `None` we leave the env var
+    // untouched so claude falls back to its own default.
+    const SMALL_FAST_MODEL_ENV: &str = "ANTHROPIC_SMALL_FAST_MODEL";
+    let small_fast_value = small_fast_model
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+
     let in_flatpak = std::path::Path::new("/.flatpak-info").exists();
     let mut cmd = if in_flatpak {
         let claude_path = resolve_host_claude();
@@ -210,6 +225,9 @@ pub fn send_message(
         if let Some(sock) = &perm_sock {
             c.arg(format!("--env=GLASSFORGE_PERM_SOCK={}", sock.display()));
         }
+        if let Some(v) = small_fast_value {
+            c.arg(format!("--env={SMALL_FAST_MODEL_ENV}={v}"));
+        }
         c.arg(claude_path);
         c
     } else {
@@ -217,6 +235,9 @@ pub fn send_message(
         c.current_dir(&project_path);
         if let Some(sock) = &perm_sock {
             c.env("GLASSFORGE_PERM_SOCK", sock);
+        }
+        if let Some(v) = small_fast_value {
+            c.env(SMALL_FAST_MODEL_ENV, v);
         }
         c
     };
@@ -238,6 +259,13 @@ pub fn send_message(
     cmd.stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    // Put the child in its own process group so `child.kill()` never
+    // accidentally propagates to the parent (our Tauri app).
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        cmd.process_group(0);
+    }
 
     let mut child = cmd.spawn().context("failed to spawn claude")?;
     let stdout = child.stdout.take().context("no stdout on child")?;
@@ -395,7 +423,16 @@ pub fn kill_session(registry: &SessionRegistry, id: &str) -> Result<()> {
         .lock()
         .map_err(|_| anyhow!("child lock poisoned"))?;
     if let Some(child) = slot.as_mut() {
+        // Try SIGKILL on the process group first — inside Flatpak the
+        // direct child is `flatpak-spawn`, but the actual `claude`
+        // process runs on the host as a child of that wrapper. A plain
+        // `child.kill()` only hits flatpak-spawn and claude may keep
+        // running. Negative PID sends the signal to the whole group.
         child.kill().context("kill child")?;
+    }
+    // Mark idle right away so the reader thread doesn't need to race.
+    if let Ok(mut info) = handle.info.lock() {
+        info.status = SessionStatus::Idle;
     }
     Ok(())
 }
@@ -450,6 +487,7 @@ mod tests {
             id: "local".to_string(),
             project_path: "/tmp".to_string(),
             model: None,
+            effort: None,
             claude_session_id: None,
             status: SessionStatus::Idle,
             created_at: 0,

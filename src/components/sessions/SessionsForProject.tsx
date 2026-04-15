@@ -1,5 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { MessageSquare, RefreshCw, Trash2 } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { MessageSquare, Pencil, RefreshCw, Trash2 } from "lucide-react";
 
 import * as log from "@/lib/log";
 import {
@@ -7,10 +14,12 @@ import {
   deleteSessionFile,
   listProjectSessions,
   loadSessionHistory,
+  removeSession as removeBackendSession,
   type ClaudeProjectSummary,
 } from "@/lib/tauri-commands";
 import type { ChatEntry, SessionInfo } from "@/lib/types";
 import { useSessionStore } from "@/stores/sessionStore";
+import { useSessionNamesStore } from "@/stores/sessionNamesStore";
 import { usePreferencesStore } from "@/stores/preferencesStore";
 
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
@@ -23,6 +32,11 @@ type ListedSession = {
   label: string;
   preview: string | null;
   lastTs: string | null;
+  // Milliseconds since epoch used to sort the list. For live sessions we
+  // use `usage.lastActivityAt` so an active conversation bubbles back to
+  // the top on every event; for historical entries we fall back to the
+  // JSONL `lastTs`.
+  sortTs: number;
   claudeSessionId: string | null;
   liveSession?: SessionInfo;
 };
@@ -45,15 +59,21 @@ type Props = {
 export function SessionsForProject({ projectPath }: Props) {
   const liveOrder = useSessionStore((s) => s.order);
   const liveSessions = useSessionStore((s) => s.sessions);
+  const liveUsage = useSessionStore((s) => s.usage);
   const activeId = useSessionStore((s) => s.activeId);
   const setActive = useSessionStore((s) => s.setActive);
   const addSession = useSessionStore((s) => s.addSession);
+  const removeLiveSession = useSessionStore((s) => s.removeSession);
   const seedEntries = useSessionStore((s) => s.seedEntries);
 
   const skipDeleteWarning = usePreferencesStore((s) => s.skipDeleteWarning);
   const setSkipDeleteWarning = usePreferencesStore(
     (s) => s.setSkipDeleteWarning,
   );
+
+  const sessionNames = useSessionNamesStore((s) => s.names);
+  const renameSession = useSessionNamesStore((s) => s.rename);
+  const forgetName = useSessionNamesStore((s) => s.forget);
 
   const [projects, setProjects] = useState<ClaudeProjectSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -62,6 +82,37 @@ export function SessionsForProject({ projectPath }: Props) {
   const [pendingDelete, setPendingDelete] = useState<ListedSession | null>(
     null,
   );
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftName, setDraftName] = useState("");
+  const editInputRef = useRef<HTMLInputElement | null>(null);
+
+  useLayoutEffect(() => {
+    if (editingId && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [editingId]);
+
+  function startEditing(s: ListedSession) {
+    if (!s.claudeSessionId) return;
+    setEditingId(s.claudeSessionId);
+    setDraftName(sessionNames[s.claudeSessionId] ?? "");
+  }
+
+  function cancelEditing() {
+    setEditingId(null);
+    setDraftName("");
+  }
+
+  async function commitEditing() {
+    if (!editingId) return;
+    try {
+      await renameSession(editingId, draftName);
+    } catch (e) {
+      log.warn("rename session failed", e);
+    }
+    cancelEditing();
+  }
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -87,16 +138,30 @@ export function SessionsForProject({ projectPath }: Props) {
 
     const entries: ListedSession[] = [];
 
+    // Use the tail of the UUID: v7 puts the timestamp at the front, so
+    // sessions created in a tight burst otherwise share a prefix and all
+    // look identical in the sidebar.
+    const tail = (id: string) => id.replace(/-/g, "").slice(-8);
+    const fallbackLabel = (claudeId: string | null, internalId?: string) => {
+      if (claudeId && sessionNames[claudeId]) return sessionNames[claudeId];
+      if (claudeId) return `session ${tail(claudeId)}`;
+      if (internalId) return `session ${tail(internalId)}`;
+      return "session";
+    };
+
     // Historical sessions scoped to this exact cwd.
     const match = projects.find((p) => p.path === trimmed);
     if (match) {
       for (const s of match.sessions) {
+        const custom = sessionNames[s.id];
+        const ts = s.lastTs ? Date.parse(s.lastTs) : 0;
         entries.push({
           key: s.id,
           kind: "historical",
-          label: s.preview ?? `session ${s.id.slice(0, 8)}`,
+          label: custom ?? s.preview ?? `session ${tail(s.id)}`,
           preview: s.preview,
           lastTs: s.lastTs,
+          sortTs: Number.isFinite(ts) ? ts : 0,
           claudeSessionId: s.id,
         });
       }
@@ -108,13 +173,15 @@ export function SessionsForProject({ projectPath }: Props) {
     for (const id of liveOrder) {
       const info = liveSessions[id];
       if (!info || info.project_path !== trimmed) continue;
+      const activityTs =
+        liveUsage[id]?.lastActivityAt ?? info.created_at * 1000;
       const live: ListedSession = {
         key: `live-${id}`,
         kind: "live",
-        label:
-          info.claude_session_id ?? `session ${id.slice(0, 8)}`,
+        label: fallbackLabel(info.claude_session_id, id),
         preview: null,
-        lastTs: new Date(info.created_at * 1000).toISOString(),
+        lastTs: new Date(activityTs).toISOString(),
+        sortTs: activityTs,
         claudeSessionId: info.claude_session_id,
         liveSession: info,
       };
@@ -128,8 +195,8 @@ export function SessionsForProject({ projectPath }: Props) {
       else entries.unshift(live);
     }
 
-    return entries.sort((a, b) => (b.lastTs ?? "").localeCompare(a.lastTs ?? ""));
-  }, [projects, projectPath, liveOrder, liveSessions]);
+    return entries.sort((a, b) => b.sortTs - a.sortTs);
+  }, [projects, projectPath, liveOrder, liveSessions, liveUsage, sessionNames]);
 
   async function onClickSession(s: ListedSession) {
     if (s.kind === "live" && s.liveSession) {
@@ -160,9 +227,31 @@ export function SessionsForProject({ projectPath }: Props) {
   }
 
   async function doDelete(s: ListedSession) {
-    if (!s.claudeSessionId) return;
     try {
-      await deleteSessionFile(s.claudeSessionId);
+      // Always drop the live handle first so the PTY is killed and the
+      // sidebar entry disappears immediately — even for sessions that
+      // never received a claude session id (never sent a first message).
+      if (s.liveSession) {
+        try {
+          await removeBackendSession(s.liveSession.id);
+        } catch (e) {
+          log.warn("remove_session backend failed", e);
+        }
+        removeLiveSession(s.liveSession.id);
+      }
+      // If the session produced a JSONL on disk, delete it too and forget
+      // any custom name keyed to its claude id.
+      if (s.claudeSessionId) {
+        try {
+          await deleteSessionFile(s.claudeSessionId);
+        } catch (e) {
+          // A live session that was never resumed has no JSONL — the
+          // backend responds with "not found" which we can safely ignore.
+          const msg = e instanceof Error ? e.message : String(e);
+          if (!/not found/i.test(msg)) throw e;
+        }
+        await forgetName(s.claudeSessionId);
+      }
       await refresh();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -219,41 +308,96 @@ export function SessionsForProject({ projectPath }: Props) {
               s.liveSession && s.liveSession.id === activeId;
             const isResuming =
               resuming && s.claudeSessionId === resuming;
+            const isEditing =
+              !!s.claudeSessionId && editingId === s.claudeSessionId;
+            const hasCustomName =
+              !!s.claudeSessionId && !!sessionNames[s.claudeSessionId];
             return (
               <li key={s.key} className={styles.item}>
-                <button
-                  type="button"
-                  className={`${styles.sessionCard} ${
-                    isActive ? styles.sessionActive : ""
-                  } ${s.kind === "historical" ? styles.sessionHistorical : ""}`}
-                  onClick={() => void onClickSession(s)}
-                  disabled={!!isResuming}
-                >
-                  <MessageSquare
-                    size={11}
-                    className={styles.sessionIcon}
+                {isEditing ? (
+                  <input
+                    ref={editInputRef}
+                    className={styles.renameInput}
+                    value={draftName}
+                    onChange={(e) => setDraftName(e.target.value)}
+                    onBlur={() => void commitEditing()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void commitEditing();
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        cancelEditing();
+                      }
+                    }}
+                    placeholder="Session name (empty = reset)"
+                    spellCheck={false}
                   />
-                  <div className={styles.sessionText}>
-                    <span className={styles.sessionLabel}>{s.label}</span>
-                    <span className={styles.sessionMeta}>
-                      {s.kind === "live" ? "live · " : ""}
-                      {relativeTime(s.lastTs)}
-                    </span>
-                  </div>
-                </button>
-                {s.claudeSessionId ? (
+                ) : (
                   <button
                     type="button"
-                    className={styles.deleteButton}
-                    onClick={(e) => {
+                    className={`${styles.sessionCard} ${
+                      isActive ? styles.sessionActive : ""
+                    } ${s.kind === "historical" ? styles.sessionHistorical : ""}`}
+                    onClick={() => void onClickSession(s)}
+                    onDoubleClick={(e) => {
                       e.stopPropagation();
-                      requestDelete(s);
+                      startEditing(s);
                     }}
-                    aria-label="Delete session file"
-                    title="Delete from ~/.claude/projects"
+                    disabled={!!isResuming}
                   >
-                    <Trash2 size={11} />
+                    <MessageSquare
+                      size={11}
+                      className={styles.sessionIcon}
+                    />
+                    <div className={styles.sessionText}>
+                      <span
+                        className={`${styles.sessionLabel} ${
+                          hasCustomName ? styles.customName : ""
+                        }`}
+                      >
+                        {s.label}
+                      </span>
+                      <span className={styles.sessionMeta}>
+                        {s.kind === "live" ? "live · " : ""}
+                        {relativeTime(s.lastTs)}
+                      </span>
+                    </div>
                   </button>
+                )}
+                {!isEditing ? (
+                  <>
+                    {s.claudeSessionId ? (
+                      <button
+                        type="button"
+                        className={styles.renameButton}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startEditing(s);
+                        }}
+                        aria-label="Rename session"
+                        title="Rename (double-click also works)"
+                      >
+                        <Pencil size={11} />
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className={styles.deleteButton}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        requestDelete(s);
+                      }}
+                      aria-label="Delete session"
+                      title={
+                        s.claudeSessionId
+                          ? "Delete from ~/.claude/projects"
+                          : "Close this session"
+                      }
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </>
                 ) : null}
               </li>
             );

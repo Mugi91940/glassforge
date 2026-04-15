@@ -4,10 +4,23 @@ type Props = {
   used: number;
   total: number;
   size?: number;
-  label?: string;
+  // Full detected model string, surfaced as a tooltip on hover for
+  // people debugging the ring vs claude-code's /context reading.
+  modelName?: string | null;
 };
 
-export function ContextRing({ used, total, size = 64, label }: Props) {
+function formatCapacity(total: number): string {
+  if (total >= 1_000_000) return `${Math.round(total / 1_000_000)}M`;
+  if (total >= 1_000) return `${Math.round(total / 1_000)}k`;
+  return String(total);
+}
+
+export function ContextRing({
+  used,
+  total,
+  size = 64,
+  modelName,
+}: Props) {
   const pct = total > 0 ? Math.min(1, used / total) : 0;
   const radius = (size - 6) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -16,8 +29,17 @@ export function ContextRing({ used, total, size = 64, label }: Props) {
   const tone =
     pct < 0.5 ? "safe" : pct < 0.8 ? "warning" : "danger";
 
+  const cap = formatCapacity(total);
+  const title = modelName
+    ? `${modelName} · ${cap} window`
+    : `${cap} context window`;
+
   return (
-    <div className={styles.root} style={{ width: size, height: size }}>
+    <div
+      className={styles.root}
+      style={{ width: size, height: size }}
+      title={title}
+    >
       <svg
         width={size}
         height={size}
@@ -47,7 +69,7 @@ export function ContextRing({ used, total, size = 64, label }: Props) {
       </svg>
       <div className={styles.label}>
         <span className={styles.pct}>{Math.round(pct * 100)}%</span>
-        {label ? <span className={styles.sub}>{label}</span> : null}
+        <span className={styles.sub}>{cap}</span>
       </div>
     </div>
   );

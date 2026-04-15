@@ -218,7 +218,7 @@ export function Sidebar() {
                     className={styles.historyButton}
                     onClick={() => {
                       setProjectPath(p.path);
-                      void spawnSession(p.path);
+                      void historyTouch(p.path);
                     }}
                     title={p.path}
                   >

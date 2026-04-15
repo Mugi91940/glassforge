@@ -35,12 +35,15 @@ export function MainPanel() {
     );
   }
 
-  const disabled = activeSession.status === "error";
-
+  // Every send_message spawns a fresh `claude -p` child and flips the
+  // status back to Running, so an "error" status only reflects the
+  // previous turn — never a permanent lockout. Keep the composer live so
+  // the user can always retry (claude's own /compact leaves the process
+  // in an exit state that we used to misread as a dead session).
   return (
     <main className={styles.root}>
       <ChatView session={activeSession} entries={activeEntries} />
-      <ComposeInput sessionId={activeSession.id} disabled={disabled} />
+      <ComposeInput sessionId={activeSession.id} />
       <PermissionModal sessionId={activeSession.id} />
     </main>
   );
