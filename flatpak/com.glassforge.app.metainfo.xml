@@ -22,6 +22,11 @@
   <url type="bugtracker">https://github.com/3L0935/glassforge/issues</url>
   <launchable type="desktop-id">com.glassforge.app.desktop</launchable>
   <releases>
+    <release version="0.1.1" date="2026-04-15">
+      <description>
+        <p>Fix: acceptEdits mode now correctly prompts for non-edit tools (Read, Bash, etc.) instead of silently denying them in non-interactive sessions. The permission broker is now wired up for both manual and acceptEdits modes, with auto-approval of edit tools in the latter.</p>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-04-14">
       <description>
         <p>Initial release.</p>

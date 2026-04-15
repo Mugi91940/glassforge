@@ -187,14 +187,22 @@ pub fn send_message(
         .as_deref()
         .unwrap_or("acceptEdits")
         .to_string();
-    let is_manual = mode == "manual";
 
-    // For manual mode we: (1) bind a per-session socket, (2) drop the
+    // Two modes drive our own permission broker: `manual` (prompt for
+    // every tool) and `acceptEdits` (auto-approve edit tools, prompt for
+    // the rest). We route acceptEdits through the broker because
+    // claude-code's native acceptEdits mode can't raise a prompt in
+    // non-interactive `-p` runs — it ends up silently denying anything
+    // outside its auto-approve set (notably Read of paths outside cwd).
+    //
+    // Both broker modes: (1) bind a per-session socket, (2) drop the
     // python hook script to disk, (3) generate a scoped settings.json
     // referencing that hook, (4) pass --settings + GLASSFORGE_PERM_SOCK.
     // Claude's `--permission-mode bypassPermissions` is used as the base
     // so its own prompts don't fire; the hook becomes the sole gate.
-    let (claude_mode, extra_settings, perm_sock) = if is_manual {
+    let uses_broker = matches!(mode.as_str(), "manual" | "acceptEdits");
+    let auto_allow_edits = mode == "acceptEdits";
+    let (claude_mode, extra_settings, perm_sock) = if uses_broker {
         let sock = broker.register(&app, id)?;
         let hook = crate::claude::permissions::ensure_hook_script()?;
         let settings = crate::claude::permissions::write_session_settings(id, &hook)?;
@@ -225,6 +233,9 @@ pub fn send_message(
         if let Some(sock) = &perm_sock {
             c.arg(format!("--env=GLASSFORGE_PERM_SOCK={}", sock.display()));
         }
+        if auto_allow_edits {
+            c.arg("--env=GLASSFORGE_AUTO_EDITS=1");
+        }
         if let Some(v) = small_fast_value {
             c.arg(format!("--env={SMALL_FAST_MODEL_ENV}={v}"));
         }
@@ -235,6 +246,9 @@ pub fn send_message(
         c.current_dir(&project_path);
         if let Some(sock) = &perm_sock {
             c.env("GLASSFORGE_PERM_SOCK", sock);
+        }
+        if auto_allow_edits {
+            c.env("GLASSFORGE_AUTO_EDITS", "1");
         }
         if let Some(v) = small_fast_value {
             c.env(SMALL_FAST_MODEL_ENV, v);

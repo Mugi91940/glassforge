@@ -1,10 +1,14 @@
-//! Per-session permission broker for "manual" mode.
+//! Per-session permission broker for "manual" and "acceptEdits" modes.
 //!
 //! Claude hooks are regular shell commands invoked on PreToolUse. The
 //! hook receives the tool call JSON on stdin and decides allow/deny via
 //! its exit code (0 = allow, 2 = block). We exploit that: our hook is a
 //! tiny python script that connects to a per-session Unix socket, ships
 //! the JSON over, and waits for a decision string from this Rust broker.
+//!
+//! In "acceptEdits" mode the hook also reads `GLASSFORGE_AUTO_EDITS=1`
+//! and short-circuits Edit/Write/MultiEdit/NotebookEdit calls without
+//! touching the socket, so the modal only pops for non-edit tools.
 //!
 //! The broker runs one acceptor thread per registered session. When a
 //! connection comes in it parses the tool-call JSON, emits a Tauri event
@@ -303,5 +307,21 @@ mod tests {
     fn hook_script_path_is_under_home() {
         let p = hook_script_path().expect("HOME set");
         assert!(p.to_string_lossy().ends_with("perm_hook.py"));
+    }
+
+    #[test]
+    fn bundled_hook_has_auto_edits_short_circuit() {
+        // Regression guard: acceptEdits mode only works if the bundled
+        // hook still recognizes GLASSFORGE_AUTO_EDITS and short-circuits
+        // the four edit tool names. Breaking any of these silently
+        // brings back the "Read outside cwd silently blocked" bug.
+        let bundled = include_str!("perm_hook.py");
+        assert!(bundled.contains("GLASSFORGE_AUTO_EDITS"));
+        for tool in ["Edit", "Write", "MultiEdit", "NotebookEdit"] {
+            assert!(
+                bundled.contains(tool),
+                "perm_hook.py must auto-allow {tool}"
+            );
+        }
     }
 }

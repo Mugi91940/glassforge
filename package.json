@@ -1,7 +1,7 @@
 {
   "name": "glassforge",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "A fast, glassy Linux GUI for Claude Code.",
   "scripts": {
