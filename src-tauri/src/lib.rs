@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use tauri::{AppHandle, State, WebviewWindow};
 
+mod attachments;
 mod claude;
 mod config;
 mod fs_browse;
@@ -58,6 +59,8 @@ pub fn run() {
             list_skills,
             install_skill,
             list_dir,
+            save_clipboard_image,
+            read_image_as_data_url,
             set_kde_blur,
             set_kde_blur_strength,
             detect_display_server,
@@ -136,6 +139,7 @@ fn git_info(project_path: &str) -> Option<GitInfo> {
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)] // tauri command signature, each arg maps to a JS call kwarg
 fn send_message(
     app: AppHandle,
     registry: RegistryState<'_>,
@@ -144,6 +148,7 @@ fn send_message(
     message: String,
     model: Option<String>,
     permission_mode: Option<String>,
+    small_fast_model: Option<String>,
 ) -> Result<(), String> {
     claude::send_message(
         registry.inner(),
@@ -153,6 +158,7 @@ fn send_message(
         message,
         model,
         permission_mode,
+        small_fast_model,
     )
     .map_err(|e| e.to_string())
 }
@@ -215,6 +221,18 @@ fn install_skill(url: String) -> Result<Skill, String> {
 #[tauri::command]
 fn list_dir(path: String) -> Result<fs_browse::DirListing, String> {
     fs_browse::list_dir(&path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn save_clipboard_image(bytes: Vec<u8>, extension: String) -> Result<String, String> {
+    attachments::save_bytes_to_temp(bytes, &extension)
+        .map(|p| p.display().to_string())
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn read_image_as_data_url(path: String) -> Result<String, String> {
+    attachments::read_as_data_url(std::path::Path::new(&path)).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

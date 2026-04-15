@@ -66,12 +66,14 @@ export async function sendMessage(
   message: string,
   model?: string | null,
   permissionMode?: PermissionMode | null,
+  smallFastModel?: string | null,
 ): Promise<void> {
   return invoke<void>("send_message", {
     sessionId,
     message,
     model: model ?? null,
     permissionMode: permissionMode ?? null,
+    smallFastModel: smallFastModel ?? null,
   });
 }
 
@@ -163,4 +165,18 @@ export type DisplayServer = "wayland" | "x11" | "unknown" | "unsupported";
 
 export async function detectDisplayServer(): Promise<DisplayServer> {
   return invoke<DisplayServer>("detect_display_server");
+}
+
+export async function saveClipboardImage(
+  bytes: Uint8Array,
+  extension: string,
+): Promise<string> {
+  return invoke<string>("save_clipboard_image", {
+    bytes: Array.from(bytes),
+    extension,
+  });
+}
+
+export async function readImageAsDataUrl(path: string): Promise<string> {
+  return invoke<string>("read_image_as_data_url", { path });
 }
