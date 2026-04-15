@@ -42,3 +42,6 @@ flatpak/repo/
 flatpak/*.flatpak
 dist/
 .claude/
+
+# ── Brainstorm / session cache ───────────────────────────────
+.superpowers/
