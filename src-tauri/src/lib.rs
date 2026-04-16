@@ -236,13 +236,8 @@ fn list_installed_plugins() -> Result<Vec<catalog::CatalogEntry>, String> {
 }
 
 #[tauri::command]
-fn install_catalog_plugin(name: String, scope: String) -> Result<(), String> {
-    let s = match scope.as_str() {
-        "project" => catalog::Scope::Project,
-        "local" => catalog::Scope::Local,
-        _ => catalog::Scope::User,
-    };
-    catalog::install_plugin(&name, &s).map_err(|e| e.to_string())
+fn install_catalog_plugin(name: String, scope: catalog::Scope) -> Result<(), String> {
+    catalog::install_plugin(&name, &scope).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -251,13 +246,11 @@ fn uninstall_catalog_plugin(name: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn change_catalog_plugin_scope(plugin_id: String, new_scope: String) -> Result<(), String> {
-    let s = match new_scope.as_str() {
-        "project" => catalog::Scope::Project,
-        "local" => catalog::Scope::Local,
-        _ => catalog::Scope::User,
-    };
-    catalog::change_plugin_scope(&plugin_id, &s).map_err(|e| e.to_string())
+fn change_catalog_plugin_scope(
+    plugin_id: String,
+    new_scope: catalog::Scope,
+) -> Result<(), String> {
+    catalog::change_plugin_scope(&plugin_id, &new_scope).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
