@@ -26,9 +26,9 @@ export function MainPanel() {
     return (
       <main className={styles.root}>
         <div className={styles.empty}>
-          <h2 className={styles.emptyTitle}>No active session</h2>
+          <h2 className={styles.emptyTitle}>No session selected</h2>
           <p className={styles.emptySubtitle}>
-            Spawn a new Claude Code session from the sidebar to get started.
+            Create a new session from the sidebar, or press Ctrl+N
           </p>
         </div>
       </main>

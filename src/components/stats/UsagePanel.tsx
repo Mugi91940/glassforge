@@ -128,6 +128,13 @@ export function UsagePanel() {
 
       {err ? <p className={styles.error}>{err}</p> : null}
 
+      {!loading && !err && snap.sessionCount === 0 && snap.allTime.messages === 0 ? (
+        <p className={styles.ratesHint}>
+          Usage data appears after your first message. Token counts, costs, and
+          rate limits will be shown here.
+        </p>
+      ) : null}
+
       {fiveHourPct !== null || weeklyPct !== null ? (
         <div className={styles.rateLimits}>
           {fiveHourPct !== null ? (

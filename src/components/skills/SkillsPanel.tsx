@@ -105,7 +105,8 @@ export function SkillsPanel() {
         <p className={styles.empty}>Loading…</p>
       ) : skills.length === 0 ? (
         <p className={styles.empty}>
-          No skills in ~/.claude/skills.
+          No skills found. Install one by entering a package name above, or
+          check the Claude Code docs for available skills.
         </p>
       ) : (
         <ul className={styles.list}>
