@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { ArrowLeft, ExternalLink, Package, Sparkles } from "lucide-react";
 
 import type { CatalogEntry } from "@/lib/types";
@@ -22,6 +23,16 @@ function sourceName(entry: CatalogEntry): string | null {
 export function DetailView({ entry }: { entry: CatalogEntry }) {
   const selectEntry = useCatalogStore((s) => s.selectEntry);
   const isPlugin = entry.entry_type === "Plugin";
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        selectEntry(null);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectEntry]);
 
   return (
     <div className={styles.root}>
