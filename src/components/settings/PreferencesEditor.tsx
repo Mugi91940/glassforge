@@ -11,7 +11,7 @@ const SMALL_FAST_OPTIONS: DropdownOption<SmallFastModel>[] = [
   { label: "Auto (claude default)", value: "auto" },
   { label: "Haiku 4.5", value: "haiku" },
   { label: "Sonnet 4.6", value: "sonnet" },
-  { label: "Opus 4.6", value: "opus" },
+  { label: "Opus 4.7", value: "opus" },
 ];
 
 const LONG_CONTEXT_OPTIONS: DropdownOption<LongContextScope>[] = [

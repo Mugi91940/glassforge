@@ -28,7 +28,7 @@ export type SessionUsage = {
   // is to observe a context that physically exceeds the 200k ceiling.
   maxObservedContextTokens: number;
   // Full model string as reported by claude on its latest assistant turn
-  // (e.g. "claude-opus-4-6-20260415"). Kept here, NOT on SessionInfo,
+  // (e.g. "claude-opus-4-7-20260415"). Kept here, NOT on SessionInfo,
   // because SessionInfo.model is bound to the user-facing dropdown and
   // mixing the two caused the dropdown to display an empty value.
   detectedModel?: string;

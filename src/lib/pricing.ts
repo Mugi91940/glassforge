@@ -8,7 +8,7 @@ export type ModelPricing = {
   contextWindow: number;
 };
 
-// Claude-code exposes the 1M-context tier for Opus and Sonnet 4.6 as an
+// Claude-code exposes the 1M-context tier for Opus and Sonnet 4.7 as an
 // entry in its `/model` menu (no env var or beta flag needed on Max/Team
 // plans). When the user picks one, claude reports a model string that
 // contains `1m` in the next assistant event — we detect that via the
@@ -18,8 +18,14 @@ export const PRICING: Record<string, ModelPricing> = {
   opus: { inputPerMTok: 15, outputPerMTok: 75, contextWindow: 200_000 },
   "opus-4": { inputPerMTok: 15, outputPerMTok: 75, contextWindow: 200_000 },
   "opus-4-6": { inputPerMTok: 15, outputPerMTok: 75, contextWindow: 200_000 },
+  "opus-4-7": { inputPerMTok: 15, outputPerMTok: 75, contextWindow: 200_000 },
   "opus-1m": { inputPerMTok: 15, outputPerMTok: 75, contextWindow: 1_000_000 },
   "opus-4-6-1m": {
+    inputPerMTok: 15,
+    outputPerMTok: 75,
+    contextWindow: 1_000_000,
+  },
+  "opus-4-7-1m": {
     inputPerMTok: 15,
     outputPerMTok: 75,
     contextWindow: 1_000_000,
@@ -48,7 +54,7 @@ export const DEFAULT_PRICING: ModelPricing = {
 };
 
 // Iterating PRICING in insertion order would match "opus" before
-// "opus-4-6" for a string like "claude-opus-4-6-20251029" and return the
+// "opus-4-7" for a string like "claude-opus-4-7-20260415" and return the
 // wrong (200k) context window. Sort by key length descending so the
 // most specific alias wins.
 const PRICING_KEYS_BY_SPECIFICITY = Object.keys(PRICING).sort(
@@ -58,7 +64,7 @@ const PRICING_KEYS_BY_SPECIFICITY = Object.keys(PRICING).sort(
 // Detects model strings that carry the 1M-context marker. Claude-code
 // uses the `opus[1m]` / `sonnet[1m]` bracket notation as the canonical
 // alias and echoes it back in its event stream (e.g.
-// `"modelUsage":{"claude-opus-4-6[1m]":{...}}`). We also accept a few
+// `"modelUsage":{"claude-opus-4-7[1m]":{...}}`). We also accept a few
 // hyphen-variant spellings just in case future builds differ.
 function detect1mVariant(key: string): ModelPricing | null {
   if (!/\[1m\]|\b1m\b|-1m-|-1m$/.test(key)) return null;
@@ -116,8 +122,8 @@ export function modelFamily(
   return null;
 }
 
-// Turn a raw claude model string (e.g. "claude-opus-4-6[1m]") into a
-// compact label suitable for UI chips — "Opus 4.6 1M". Falls back to
+// Turn a raw claude model string (e.g. "claude-opus-4-7[1m]") into a
+// compact label suitable for UI chips — "Opus 4.7 1M". Falls back to
 // the input string untouched if it doesn't match a known shape.
 export function prettyModelName(model: string): string {
   const key = model.toLowerCase();

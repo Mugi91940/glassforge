@@ -383,7 +383,7 @@ mod tests {
 
     #[test]
     fn normalize_model_collapses_families() {
-        assert_eq!(normalize_model("claude-opus-4-6"), "opus");
+        assert_eq!(normalize_model("claude-opus-4-7"), "opus");
         assert_eq!(normalize_model("claude-sonnet-4-6"), "sonnet");
         assert_eq!(normalize_model("claude-haiku-4-5"), "haiku");
         assert_eq!(normalize_model("custom-model-x"), "custom-model-x");

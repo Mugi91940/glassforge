@@ -25,18 +25,21 @@ import styles from "./ChatView.module.css";
 
 const MODEL_OPTIONS: DropdownOption<string | null>[] = [
   { label: "Default", value: null },
-  { label: "Opus 4.6", value: "opus" },
-  { label: "Opus 4.6 (1M)", value: "opus[1m]" },
+  { label: "Opus 4.7", value: "opus" },
+  { label: "Opus 4.7 (1M)", value: "opus[1m]" },
   { label: "Sonnet 4.6", value: "sonnet" },
   { label: "Sonnet 4.6 (1M)", value: "sonnet[1m]" },
   { label: "Haiku 4.5", value: "haiku" },
 ];
 
-const EFFORT_OPTIONS: DropdownOption<string | null>[] = [
+// xhigh sits between high and max and is currently Opus-4.7-only on
+// claude-code; we filter it out for non-Opus selections below.
+const EFFORT_OPTIONS_FULL: DropdownOption<string | null>[] = [
   { label: "Effort: auto", value: null },
   { label: "Effort: low", value: "low" },
   { label: "Effort: medium", value: "medium" },
   { label: "Effort: high", value: "high" },
+  { label: "Effort: xhigh", value: "xhigh" },
   { label: "Effort: max", value: "max" },
 ];
 
@@ -83,7 +86,7 @@ export function ChatView({ session, entries }: Props) {
 
   // When the session is on Default and claude has reported what model it
   // actually ran on, surface that in the dropdown label so the user sees
-  // "Default (Opus 4.6 1M)" instead of a mystery "Default".
+  // "Default (Opus 4.7 1M)" instead of a mystery "Default".
   const modelOptions = useMemo<DropdownOption<string | null>[]>(() => {
     if (session.model !== null || !usage?.detectedModel) return MODEL_OPTIONS;
     return MODEL_OPTIONS.map((opt) =>
@@ -95,6 +98,17 @@ export function ChatView({ session, entries }: Props) {
         : opt,
     );
   }, [session.model, usage?.detectedModel]);
+
+  // xhigh is Opus-4.7-only. Show it when the selection is Opus (or
+  // Default, since the default model is typically Opus on Max plans).
+  // For explicit Sonnet/Haiku picks, hide it so users don't send an
+  // effort claude-code will reject.
+  const effortOptions = useMemo<DropdownOption<string | null>[]>(() => {
+    const picked = session.model;
+    const isOpus = picked === null || /opus/i.test(picked);
+    if (isOpus) return EFFORT_OPTIONS_FULL;
+    return EFFORT_OPTIONS_FULL.filter((o) => o.value !== "xhigh");
+  }, [session.model]);
 
   const stats = useMemo(
     () => computeSessionStats(usage, session, longContextScope),
@@ -136,7 +150,7 @@ export function ChatView({ session, entries }: Props) {
             <Dropdown
               size="sm"
               ariaLabel="Effort"
-              options={EFFORT_OPTIONS}
+              options={effortOptions}
               value={session.effort ?? null}
               onChange={(v) => updateSession(session.id, { effort: v })}
             />
