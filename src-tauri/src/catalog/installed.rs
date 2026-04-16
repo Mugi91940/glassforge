@@ -92,7 +92,7 @@ pub fn list_installed() -> Result<Vec<CatalogEntry>> {
         append_standalone_skills(&skills_dir, &mut out)?;
     }
 
-    out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    out.sort_by_key(|s| s.name.to_lowercase());
     Ok(out)
 }
 
