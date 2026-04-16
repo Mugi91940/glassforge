@@ -1,13 +1,13 @@
 .root {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: var(--space-5);
 }
 
 .section {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: var(--space-3);
 }
 
 .sectionTitle {
@@ -21,14 +21,14 @@
 .presets {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 .preset {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.55rem 0.7rem;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3);
   background: var(--surface-base);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
@@ -59,13 +59,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: var(--space-3);
 }
 
 .rowLabel {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: var(--space-1);
   font-size: var(--text-sm);
   color: var(--text-primary);
   flex: 1;
@@ -80,7 +80,7 @@
 .rowControl {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
   flex-shrink: 0;
 }
 
@@ -108,7 +108,7 @@
 }
 
 .select {
-  padding: 0.45rem 2rem 0.45rem 0.65rem;
+  padding: var(--space-2) 2rem var(--space-2) var(--space-3);
   background: var(--surface-raised);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
@@ -148,12 +148,12 @@
 .footer {
   display: flex;
   justify-content: flex-end;
-  padding-top: 0.5rem;
+  padding-top: var(--space-2);
   border-top: 1px solid var(--glass-border);
 }
 
 .reset {
-  padding: 0.5rem 0.9rem;
+  padding: var(--space-2) var(--space-4);
   background: transparent;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
