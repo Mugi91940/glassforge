@@ -111,7 +111,7 @@
   appearance: none;
   -webkit-appearance: none;
   padding: 0.25rem 1.3rem 0.25rem 0.5rem;
-  background-color: rgba(255, 255, 255, 0.04);
+  background-color: var(--surface-raised);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
@@ -126,7 +126,7 @@
 }
 
 .modelSelect:hover {
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: var(--surface-hover);
 }
 
 .modelSelect:focus {
@@ -134,7 +134,7 @@
 }
 
 .modelSelect option {
-  background: #1a1830;
+  background: var(--option-bg);
   color: var(--text-primary);
 }
 
@@ -207,7 +207,7 @@
 .resultEntry {
   align-self: center;
   padding: 0.3rem 0.7rem;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--surface-base);
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   font-size: 0.68rem;
@@ -282,7 +282,7 @@
 }
 
 .markdown th {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--surface-raised);
   font-weight: 600;
 }
 
@@ -303,7 +303,7 @@
 
 .markdown code {
   padding: 0.05rem 0.35rem;
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--surface-overlay);
   border-radius: 4px;
   font-family: var(--font-mono);
   font-size: 0.88em;
@@ -312,7 +312,7 @@
 .markdown pre {
   margin: 0;
   padding: 0.7rem 0.9rem;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--surface-sunken);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
@@ -320,7 +320,7 @@
   line-height: 1.45;
   white-space: pre;
   overflow-x: auto;
-  color: #e6e6e6;
+  color: var(--code-text);
 }
 
 .markdown pre code {
@@ -359,7 +359,7 @@
 }
 
 .copyBtn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--surface-hover);
   color: var(--text-primary);
 }
 
@@ -370,7 +370,7 @@
 .toolEntry {
   align-self: stretch;
   padding: 0.4rem 0.6rem;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface-base);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
@@ -433,7 +433,7 @@
 .toolCode {
   margin: 0;
   padding: 0.5rem 0.6rem;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--surface-sunken);
   border-radius: 4px;
   color: var(--text-primary);
   font-size: 0.7rem;

@@ -34,7 +34,7 @@
 }
 
 .refresh:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-raised);
   color: var(--text-primary);
 }
 
@@ -88,7 +88,7 @@
   align-items: flex-start;
   gap: 0.35rem;
   padding: 0.4rem 0.5rem;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface-base);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
@@ -98,7 +98,7 @@
 }
 
 .sessionCard:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-raised);
   border-color:
     color-mix(in srgb, var(--accent-primary) 30%, transparent);
 }
@@ -179,7 +179,7 @@
   font-size: 0.72rem;
   font-weight: 500;
   padding: 0.35rem 0.5rem;
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--surface-sunken);
   border: 1px solid color-mix(in srgb, var(--accent-primary) 55%, transparent);
   border-radius: var(--radius-sm);
   color: var(--text-primary);

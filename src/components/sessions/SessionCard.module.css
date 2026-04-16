@@ -4,7 +4,7 @@
   gap: 0.3rem;
   width: 100%;
   padding: 0.55rem 0.7rem;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface-base);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
   text-align: left;
@@ -12,7 +12,7 @@
 }
 
 .card:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-raised);
   border-color: color-mix(in srgb, var(--accent-primary) 30%, transparent);
 }
 

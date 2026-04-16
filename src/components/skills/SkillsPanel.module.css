@@ -29,7 +29,7 @@
   flex: 1;
   min-width: 0;
   padding: 0.45rem 0.6rem;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--surface-base);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
@@ -41,7 +41,7 @@
 
 .input:focus {
   border-color: color-mix(in srgb, var(--accent-primary) 60%, transparent);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-raised);
 }
 
 .input:disabled {
@@ -108,7 +108,7 @@
 }
 
 .refresh:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-raised);
   color: var(--text-primary);
 }
 
