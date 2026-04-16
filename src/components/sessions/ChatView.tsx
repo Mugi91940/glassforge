@@ -33,18 +33,18 @@ const MODEL_OPTIONS: DropdownOption<string | null>[] = [
 ];
 
 const EFFORT_OPTIONS: DropdownOption<string | null>[] = [
-  { label: "Auto", value: null },
-  { label: "Low", value: "low" },
-  { label: "Medium", value: "medium" },
-  { label: "High", value: "high" },
-  { label: "Max", value: "max" },
+  { label: "Effort: auto", value: null },
+  { label: "Effort: low", value: "low" },
+  { label: "Effort: medium", value: "medium" },
+  { label: "Effort: high", value: "high" },
+  { label: "Effort: max", value: "max" },
 ];
 
 const PERMISSION_OPTIONS: DropdownOption<PermissionMode>[] = [
-  { label: "Manual approval", value: "manual" },
-  { label: "Auto-edit", value: "acceptEdits" },
-  { label: "Auto-approve", value: "bypassPermissions" },
-  { label: "Plan only", value: "plan" },
+  { label: "Perms: manual", value: "manual" },
+  { label: "Perms: auto-edit", value: "acceptEdits" },
+  { label: "Perms: auto-approve", value: "bypassPermissions" },
+  { label: "Perms: plan only", value: "plan" },
 ];
 
 type Props = {
