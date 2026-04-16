@@ -4,6 +4,7 @@ import { MainPanel } from "@/components/layout/MainPanel";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { SettingsPanel } from "@/components/settings/SettingsPanel";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useSessionEvents } from "@/hooks/useSessionEvents";
 import * as log from "@/lib/log";
 import { listSessions } from "@/lib/tauri-commands";
@@ -31,6 +32,7 @@ function App() {
   }, [setSessions, loadTheme, loadPrefs, loadNames]);
 
   useSessionEvents();
+  useKeyboardShortcuts({ settingsOpen, setSettingsOpen });
 
   return (
     <div className={styles.root}>

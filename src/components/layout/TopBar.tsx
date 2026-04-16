@@ -24,6 +24,7 @@ export function TopBar({ onOpenSettings }: TopBarProps) {
         <button
           className={styles.controlButton}
           aria-label="Settings"
+          title="Settings (Ctrl+,)"
           onClick={onOpenSettings}
           type="button"
         >

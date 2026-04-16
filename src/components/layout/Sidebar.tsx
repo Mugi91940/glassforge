@@ -184,6 +184,7 @@ export function Sidebar() {
         <button
           type="button"
           className={styles.newButton}
+          title="New session (Ctrl+N)"
           onClick={onNew}
           disabled={busy}
         >
