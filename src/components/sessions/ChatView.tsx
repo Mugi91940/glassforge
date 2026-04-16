@@ -12,6 +12,7 @@ import { computeSessionStats } from "@/lib/sessionStats";
 import {
   readGitInfo,
   type GitInfo,
+  type PermissionMode,
 } from "@/lib/tauri-commands";
 import type { ChatEntry, SessionInfo } from "@/lib/types";
 import { usePreferencesStore } from "@/stores/preferencesStore";
@@ -25,14 +26,25 @@ import styles from "./ChatView.module.css";
 const MODEL_OPTIONS: DropdownOption<string | null>[] = [
   { label: "Default", value: null },
   { label: "Opus 4.6", value: "opus" },
-  // `opus[1m]` / `sonnet[1m]` are claude-code's own 1M-context aliases
-  // (confirmed via `strings` on the CLI + live smoke test). Passing them
-  // through `--model` makes claude itself run on the 1M window — no
-  // guessing, no observation needed. Haiku has no 1M variant.
   { label: "Opus 4.6 (1M)", value: "opus[1m]" },
   { label: "Sonnet 4.6", value: "sonnet" },
   { label: "Sonnet 4.6 (1M)", value: "sonnet[1m]" },
   { label: "Haiku 4.5", value: "haiku" },
+];
+
+const EFFORT_OPTIONS: DropdownOption<string | null>[] = [
+  { label: "Auto", value: null },
+  { label: "Low", value: "low" },
+  { label: "Medium", value: "medium" },
+  { label: "High", value: "high" },
+  { label: "Max", value: "max" },
+];
+
+const PERMISSION_OPTIONS: DropdownOption<PermissionMode>[] = [
+  { label: "Manual approval", value: "manual" },
+  { label: "Auto-edit", value: "acceptEdits" },
+  { label: "Auto-approve", value: "bypassPermissions" },
+  { label: "Plan only", value: "plan" },
 ];
 
 type Props = {
@@ -45,6 +57,8 @@ export function ChatView({ session, entries }: Props) {
   const usage = useSessionStore(
     (s) => s.usage[session.id] ?? null,
   ) as SessionUsage | null;
+  const permissionMode = usePreferencesStore((s) => s.permissionMode);
+  const setPermissionMode = usePreferencesStore((s) => s.setPermissionMode);
   const longContextScope = usePreferencesStore((s) => s.longContextScope);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -118,6 +132,20 @@ export function ChatView({ session, entries }: Props) {
               options={modelOptions}
               value={session.model ?? null}
               onChange={(v) => updateSession(session.id, { model: v })}
+            />
+            <Dropdown
+              size="sm"
+              ariaLabel="Effort"
+              options={EFFORT_OPTIONS}
+              value={session.effort ?? null}
+              onChange={(v) => updateSession(session.id, { effort: v })}
+            />
+            <Dropdown
+              size="sm"
+              ariaLabel="Permissions"
+              options={PERMISSION_OPTIONS}
+              value={permissionMode}
+              onChange={(v) => void setPermissionMode(v)}
             />
             <span className={styles[session.status]}>{session.status}</span>
           </div>
