@@ -174,9 +174,7 @@
 .assistantEntry {
   align-self: flex-start;
   padding: 0.7rem 0.95rem;
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  background: var(--surface-raised);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   max-width: 85%;

@@ -4,9 +4,7 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  background: var(--surface-base);
 }
 
 .empty {

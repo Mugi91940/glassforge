@@ -6,10 +6,8 @@
   min-width: var(--sidebar-width);
   height: 100%;
   padding: 1rem 0.75rem 0.75rem;
-  background: var(--glass-bg);
+  background: var(--surface-base);
   border-right: 1px solid var(--glass-border);
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
   overflow: hidden;
   flex-shrink: 0;
 }
