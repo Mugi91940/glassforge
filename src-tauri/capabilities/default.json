@@ -10,6 +10,7 @@
     "core:window:allow-maximize",
     "core:window:allow-close",
     "shell:default",
+    "shell:allow-open",
     "store:default",
     "log:default",
     "dialog:default",

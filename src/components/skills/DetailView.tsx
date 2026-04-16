@@ -1,11 +1,24 @@
 import { useEffect } from "react";
 import { ArrowLeft, ExternalLink, Package, Sparkles } from "lucide-react";
+import { open as openExternal } from "@tauri-apps/plugin-shell";
 
+import * as log from "@/lib/log";
 import type { CatalogEntry } from "@/lib/types";
 import { useCatalogStore } from "@/stores/catalogStore";
 
 import { ActionBar } from "./ActionBar";
 import styles from "./DetailView.module.css";
+
+// Route http(s) anchors through the OS default browser. A bare
+// target="_blank" in a Tauri webview just navigates in-place with no
+// way back — the "softlock" reported in issue #2.
+function openInDefaultBrowser(
+  e: React.MouseEvent<HTMLAnchorElement>,
+  url: string,
+) {
+  e.preventDefault();
+  openExternal(url).catch((err) => log.warn("shell.open failed", err));
+}
 
 function formatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M installs`;
@@ -75,6 +88,7 @@ export function DetailView({ entry }: { entry: CatalogEntry }) {
                   href={entry.homepage}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={(e) => openInDefaultBrowser(e, entry.homepage!)}
                 >
                   <ExternalLink size={10} />
                   Homepage
@@ -86,6 +100,7 @@ export function DetailView({ entry }: { entry: CatalogEntry }) {
                   href={entry.repository}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={(e) => openInDefaultBrowser(e, entry.repository!)}
                 >
                   <ExternalLink size={10} />
                   Repository

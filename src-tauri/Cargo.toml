@@ -1,6 +1,6 @@
 [package]
 name = "glassforge"
-version = "0.2.1"
+version = "0.2.2"
 description = "A fast, glassy Linux GUI for Claude Code."
 authors = ["GlassForge contributors"]
 edition = "2021"
