@@ -130,9 +130,12 @@
 
 .skillCard {
   padding: 0.6rem 0.7rem;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface-base);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .skillName {
@@ -162,10 +165,4 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
-}
-
-.skillCard {
-  max-width: 100%;
-  min-width: 0;
-  overflow: hidden;
 }
