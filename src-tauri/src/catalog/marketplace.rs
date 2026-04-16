@@ -186,11 +186,16 @@ mod tests {
                     "name": "local-source",
                     "description": "Local path source",
                     "source": "./plugins/local"
+                },
+                {
+                    "name": "github-source",
+                    "description": "Github repo source",
+                    "source": {"source": "github", "repo": "user/repo"}
                 }
             ]
         }"#;
         let mp: RawMarketplaceFile = serde_json::from_str(json).unwrap();
-        assert_eq!(mp.plugins.len(), 4);
+        assert_eq!(mp.plugins.len(), 5);
 
         assert!(mp.plugins[0].source.is_none());
         assert_eq!(
@@ -202,6 +207,10 @@ mod tests {
             "Anthropic"
         );
         assert!(mp.plugins[3].source.as_ref().unwrap().repo_url().is_none());
+        assert_eq!(
+            mp.plugins[4].source.as_ref().unwrap().repo_url(),
+            Some("https://github.com/user/repo".to_string())
+        );
     }
 
     #[test]

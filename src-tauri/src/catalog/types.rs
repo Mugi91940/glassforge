@@ -92,54 +92,45 @@ impl RawAuthor {
 }
 
 /// The polymorphic `source` field inside marketplace plugin entries.
-/// Used to extract a repo URL when available — we don't need the full shape.
+/// Can be a string (`"./plugins/foo"`), or an object with varying shapes
+/// (`{source: "url", url: "..."}`, `{source: "github", repo: "..."}`,
+/// `{source: "git-subdir", url: "...", path: "..."}`).
+/// We store it as raw JSON and extract what we need.
 #[derive(Debug, Deserialize)]
-#[serde(untagged)]
-#[allow(dead_code)] // variants/fields needed for serde discrimination
-pub enum RawPluginSource {
-    UrlObject {
-        url: String,
-        #[serde(default)]
-        sha: Option<String>,
-    },
-    GitSubdir {
-        url: String,
-        path: String,
-        #[serde(default)]
-        sha: Option<String>,
-    },
-    /// Bare string path (e.g. `"./plugins/foo"`).
-    Local(String),
-}
+#[serde(transparent)]
+pub struct RawPluginSource(serde_json::Value);
 
 impl RawPluginSource {
     /// Best-effort repository URL from the source.
     pub fn repo_url(&self) -> Option<String> {
-        match self {
-            RawPluginSource::UrlObject { url, .. } | RawPluginSource::GitSubdir { url, .. } => {
-                let u = url.trim_end_matches(".git");
-                if u.contains("github.com") || u.contains('/') {
-                    if u.starts_with("http") {
+        match &self.0 {
+            serde_json::Value::String(_) => None,
+            serde_json::Value::Object(obj) => {
+                // Try "url" field (url, git-subdir types)
+                if let Some(url) = obj.get("url").and_then(|v| v.as_str()) {
+                    let u = url.trim_end_matches(".git");
+                    return if u.starts_with("http") {
                         Some(u.to_string())
-                    } else {
+                    } else if u.contains('/') {
                         Some(format!("https://github.com/{u}"))
-                    }
-                } else {
-                    None
+                    } else {
+                        None
+                    };
                 }
+                // Try "repo" field (github type)
+                if let Some(repo) = obj.get("repo").and_then(|v| v.as_str()) {
+                    return Some(format!("https://github.com/{repo}"));
+                }
+                None
             }
-            RawPluginSource::Local(_) => None,
+            _ => None,
         }
     }
 
-    #[allow(dead_code)] // used in step 2 for has_update detection
+    /// Git commit SHA if present.
+    #[allow(dead_code)] // reserved for future has_update via SHA comparison
     pub fn sha(&self) -> Option<&str> {
-        match self {
-            RawPluginSource::UrlObject { sha, .. } | RawPluginSource::GitSubdir { sha, .. } => {
-                sha.as_deref()
-            }
-            RawPluginSource::Local(_) => None,
-        }
+        self.0.as_object()?.get("sha")?.as_str()
     }
 }
 
@@ -230,6 +221,16 @@ mod tests {
         let json = r#""./plugins/agent-sdk-dev""#;
         let s: RawPluginSource = serde_json::from_str(json).unwrap();
         assert!(s.repo_url().is_none());
+    }
+
+    #[test]
+    fn deserialize_source_github_repo() {
+        let json = r#"{"source": "github", "repo": "browserbase/agent-browse"}"#;
+        let s: RawPluginSource = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            s.repo_url(),
+            Some("https://github.com/browserbase/agent-browse".to_string())
+        );
     }
 
     #[test]
