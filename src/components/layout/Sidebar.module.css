@@ -109,52 +109,6 @@
   background: var(--surface-raised);
 }
 
-.modelRow {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.modelLabel {
-  font-size: var(--label-sm);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding-left: var(--space-1);
-}
-
-.modelSelect {
-  flex: 1;
-  min-width: 0;
-  padding: var(--space-2) 1.6rem var(--space-2) var(--space-2);
-  background-color: var(--surface-raised);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: var(--label-md);
-  outline: none;
-  appearance: none;
-  -webkit-appearance: none;
-  cursor: pointer;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='none' stroke='%23a0a0b0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M1 1l4 4 4-4'/></svg>");
-  background-repeat: no-repeat;
-  background-position: right 0.55rem center;
-  transition: border-color var(--duration-base) var(--ease-default), background-color var(--duration-base) var(--ease-default);
-}
-
-.modelSelect:hover {
-  background-color: var(--surface-overlay);
-}
-
-.modelSelect:focus {
-  border-color: color-mix(in srgb, var(--accent-primary) 60%, transparent);
-}
-
-.modelSelect option {
-  background: var(--option-bg);
-  color: var(--text-primary);
-}
 
 .newButton {
   display: inline-flex;

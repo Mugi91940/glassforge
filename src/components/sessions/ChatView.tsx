@@ -6,14 +6,12 @@ import { Check, ChevronDown, ChevronRight, Copy, GitBranch, Wrench } from "lucid
 import * as log from "@/lib/log";
 import {
   formatCost,
-  formatTokens,
   prettyModelName,
 } from "@/lib/pricing";
 import { computeSessionStats } from "@/lib/sessionStats";
 import {
   readGitInfo,
   type GitInfo,
-  type PermissionMode,
 } from "@/lib/tauri-commands";
 import type { ChatEntry, SessionInfo } from "@/lib/types";
 import { usePreferencesStore } from "@/stores/preferencesStore";
@@ -37,21 +35,6 @@ const MODEL_OPTIONS: DropdownOption<string | null>[] = [
   { label: "Haiku 4.5", value: "haiku" },
 ];
 
-const EFFORT_OPTIONS: DropdownOption<string | null>[] = [
-  { label: "Effort: auto", value: null },
-  { label: "Effort: low", value: "low" },
-  { label: "Effort: medium", value: "medium" },
-  { label: "Effort: high", value: "high" },
-  { label: "Effort: max", value: "max" },
-];
-
-const PERMISSION_OPTIONS: DropdownOption<PermissionMode>[] = [
-  { label: "Manual approval", value: "manual" },
-  { label: "Accept edits", value: "acceptEdits" },
-  { label: "Bypass", value: "bypassPermissions" },
-  { label: "Plan only", value: "plan" },
-];
-
 type Props = {
   session: SessionInfo;
   entries: ChatEntry[];
@@ -62,10 +45,6 @@ export function ChatView({ session, entries }: Props) {
   const usage = useSessionStore(
     (s) => s.usage[session.id] ?? null,
   ) as SessionUsage | null;
-  const permissionMode = usePreferencesStore((s) => s.permissionMode);
-  const setPermissionMode = usePreferencesStore(
-    (s) => s.setPermissionMode,
-  );
   const longContextScope = usePreferencesStore((s) => s.longContextScope);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -140,28 +119,7 @@ export function ChatView({ session, entries }: Props) {
               value={session.model ?? null}
               onChange={(v) => updateSession(session.id, { model: v })}
             />
-            <Dropdown
-              size="sm"
-              ariaLabel="Effort"
-              options={EFFORT_OPTIONS}
-              value={session.effort ?? null}
-              onChange={(v) => updateSession(session.id, { effort: v })}
-            />
-            <Dropdown
-              size="sm"
-              ariaLabel="Permission mode"
-              options={PERMISSION_OPTIONS}
-              value={permissionMode}
-              onChange={(v) => void setPermissionMode(v)}
-            />
-            <span className={styles.dot}>•</span>
             <span className={styles[session.status]}>{session.status}</span>
-            <span className={styles.dot}>•</span>
-            <span>
-              in {formatTokens(stats.inT)} · out {formatTokens(stats.outT)}
-            </span>
-            <span className={styles.dot}>•</span>
-            <span>{formatCost(stats.cumulativeCostUsd)}</span>
           </div>
         </div>
         <ContextRing

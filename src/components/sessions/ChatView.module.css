@@ -84,9 +84,6 @@
   color: var(--text-secondary);
 }
 
-.dot {
-  color: var(--text-muted);
-}
 
 .idle {
   color: var(--accent-primary);
@@ -107,36 +104,6 @@
   50% { opacity: 0.5; }
 }
 
-.modelSelect {
-  appearance: none;
-  -webkit-appearance: none;
-  padding: var(--space-1) 1.3rem var(--space-1) var(--space-2);
-  background-color: var(--surface-raised);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: var(--label-md);
-  cursor: pointer;
-  outline: none;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='none' stroke='%23a0a0b0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M1 1l4 4 4-4'/></svg>");
-  background-repeat: no-repeat;
-  background-position: right 0.4rem center;
-  transition: border-color var(--duration-base) var(--ease-default), background-color var(--duration-base) var(--ease-default);
-}
-
-.modelSelect:hover {
-  background-color: var(--surface-hover);
-}
-
-.modelSelect:focus {
-  border-color: color-mix(in srgb, var(--accent-primary) 60%, transparent);
-}
-
-.modelSelect option {
-  background: var(--option-bg);
-  color: var(--text-primary);
-}
 
 .log {
   flex: 1;
