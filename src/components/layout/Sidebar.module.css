@@ -5,7 +5,7 @@
   width: var(--sidebar-width);
   min-width: var(--sidebar-width);
   height: 100%;
-  padding: 1rem 0.75rem 0.75rem;
+  padding: var(--space-4) var(--space-3) var(--space-3);
   background: var(--surface-base);
   border-right: 1px solid var(--glass-border);
   overflow: hidden;
@@ -52,8 +52,8 @@
 .newSession {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
 }
 
 .label {
@@ -61,19 +61,19 @@
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  padding-left: 0.2rem;
+  padding-left: var(--space-1);
 }
 
 .pathRow {
   display: flex;
   align-items: stretch;
-  gap: 0.35rem;
+  gap: var(--space-1);
 }
 
 .input {
   flex: 1;
   min-width: 0;
-  padding: 0.5rem 0.7rem;
+  padding: var(--space-2) var(--space-3);
   background: var(--surface-base);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
@@ -112,7 +112,7 @@
 .modelRow {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 .modelLabel {
@@ -120,13 +120,13 @@
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  padding-left: 0.2rem;
+  padding-left: var(--space-1);
 }
 
 .modelSelect {
   flex: 1;
   min-width: 0;
-  padding: 0.4rem 1.6rem 0.4rem 0.55rem;
+  padding: var(--space-2) 1.6rem var(--space-2) var(--space-2);
   background-color: var(--surface-raised);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
@@ -160,8 +160,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  padding: 0.55rem 0.8rem;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   background: color-mix(in srgb, var(--accent-primary) 16%, transparent);
   border: 1px solid
     color-mix(in srgb, var(--accent-primary) 40%, transparent);
@@ -196,20 +196,20 @@
 .history {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 0 0.2rem;
-  margin-bottom: 0.75rem;
+  gap: var(--space-1);
+  padding: 0 var(--space-1);
+  margin-bottom: var(--space-3);
 }
 
 .historyHeader {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: var(--space-1);
   font-size: var(--label-xs);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-secondary);
-  padding-bottom: 0.25rem;
+  padding-bottom: var(--space-1);
 }
 
 .historyClear {
@@ -233,7 +233,7 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: var(--space-1);
   max-height: 9rem;
   overflow-y: auto;
 }
@@ -241,7 +241,7 @@
 .historyItem {
   display: flex;
   align-items: stretch;
-  gap: 0.2rem;
+  gap: var(--space-1);
 }
 
 .historyButton {
@@ -251,7 +251,7 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 0.08rem;
-  padding: 0.35rem 0.5rem;
+  padding: var(--space-1) var(--space-2);
   background: var(--surface-base);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
@@ -306,9 +306,9 @@
 
 .tabs {
   display: flex;
-  gap: 0.3rem;
-  padding: 0 0.2rem;
-  margin-bottom: 0.6rem;
+  gap: var(--space-1);
+  padding: 0 var(--space-1);
+  margin-bottom: var(--space-2);
 }
 
 .tab {
@@ -316,8 +316,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
-  padding: 0.4rem 0.5rem;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-2);
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
@@ -356,7 +356,7 @@
 
 .empty {
   margin: 0;
-  padding: 0.5rem 0.2rem;
+  padding: var(--space-2) var(--space-1);
   font-size: var(--text-sm);
   color: var(--text-muted);
 }
@@ -364,8 +364,8 @@
 .list {
   list-style: none;
   margin: 0;
-  padding: 0 0.2rem;
+  padding: 0 var(--space-1);
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: var(--space-2);
 }
