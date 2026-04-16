@@ -164,7 +164,6 @@ pub struct RawInstallCountsFile {
 }
 
 /// A single installed plugin record inside `installed_plugins.json`.
-#[allow(dead_code)] // consumed in catalog::installed (step 2)
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RawInstalledRecord {
@@ -172,11 +171,11 @@ pub struct RawInstalledRecord {
     pub install_path: String,
     pub version: String,
     #[serde(default)]
+    #[allow(dead_code)] // reserved for future has_update via SHA comparison
     pub git_commit_sha: Option<String>,
 }
 
 /// Top-level shape of `installed_plugins.json`.
-#[allow(dead_code)] // consumed in catalog::installed (step 2)
 #[derive(Debug, Deserialize)]
 pub struct RawInstalledFile {
     #[serde(default)]

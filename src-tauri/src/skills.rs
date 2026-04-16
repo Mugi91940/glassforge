@@ -61,7 +61,7 @@ fn scan_dir(root: &Path, source: &str, out: &mut Vec<Skill>) -> Result<()> {
     Ok(())
 }
 
-fn parse_frontmatter(content: &str, fallback_path: &Path) -> (String, String) {
+pub(crate) fn parse_frontmatter(content: &str, fallback_path: &Path) -> (String, String) {
     let fallback_name = fallback_path
         .file_name()
         .map(|s| s.to_string_lossy().into_owned())
