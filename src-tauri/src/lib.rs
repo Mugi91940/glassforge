@@ -226,36 +226,52 @@ fn install_skill(url: String) -> Result<Skill, String> {
 }
 
 #[tauri::command]
-fn list_marketplace_entries() -> Result<Vec<catalog::CatalogEntry>, String> {
-    catalog::list_marketplace_entries().map_err(|e| e.to_string())
+async fn list_marketplace_entries() -> Result<Vec<catalog::CatalogEntry>, String> {
+    tokio::task::spawn_blocking(|| catalog::list_marketplace_entries().map_err(|e| e.to_string()))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn list_installed_plugins() -> Result<Vec<catalog::CatalogEntry>, String> {
-    catalog::list_installed().map_err(|e| e.to_string())
+async fn list_installed_plugins() -> Result<Vec<catalog::CatalogEntry>, String> {
+    tokio::task::spawn_blocking(|| catalog::list_installed().map_err(|e| e.to_string()))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn install_catalog_plugin(name: String, scope: catalog::Scope) -> Result<(), String> {
-    catalog::install_plugin(&name, &scope).map_err(|e| e.to_string())
+async fn install_catalog_plugin(name: String, scope: catalog::Scope) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        catalog::install_plugin(&name, &scope).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn uninstall_catalog_plugin(name: String) -> Result<(), String> {
-    catalog::uninstall_plugin(&name).map_err(|e| e.to_string())
+async fn uninstall_catalog_plugin(name: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || catalog::uninstall_plugin(&name).map_err(|e| e.to_string()))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn change_catalog_plugin_scope(
+async fn change_catalog_plugin_scope(
     plugin_id: String,
     new_scope: catalog::Scope,
 ) -> Result<(), String> {
-    catalog::change_plugin_scope(&plugin_id, &new_scope).map_err(|e| e.to_string())
+    tokio::task::spawn_blocking(move || {
+        catalog::change_plugin_scope(&plugin_id, &new_scope).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn refresh_catalog_marketplaces() -> Result<(), String> {
-    catalog::refresh_marketplaces().map_err(|e| e.to_string())
+async fn refresh_catalog_marketplaces() -> Result<(), String> {
+    tokio::task::spawn_blocking(|| catalog::refresh_marketplaces().map_err(|e| e.to_string()))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

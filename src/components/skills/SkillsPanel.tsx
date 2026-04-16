@@ -29,8 +29,10 @@ export function SkillsPanel() {
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    void fetchCatalog();
-    void refreshMarketplaces();
+    void fetchCatalog().then(() => {
+      // Refresh marketplace repos in background after initial load
+      void refreshMarketplaces();
+    });
   }, [fetchCatalog, refreshMarketplaces]);
 
   const installed = entries.filter((e) => e.installed != null);
@@ -140,7 +142,7 @@ export function SkillsPanel() {
                   key={e.id}
                   entry={e}
                   selected={selectedEntry?.id === e.id}
-                  onClick={() => selectEntry(e)}
+                  onSelect={selectEntry}
                 />
               ))}
             </section>
@@ -155,7 +157,7 @@ export function SkillsPanel() {
                   key={e.id}
                   entry={e}
                   selected={selectedEntry?.id === e.id}
-                  onClick={() => selectEntry(e)}
+                  onSelect={selectEntry}
                 />
               ))}
             </section>
