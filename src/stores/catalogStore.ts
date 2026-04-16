@@ -21,6 +21,7 @@ type CatalogState = {
   uninstall: (id: string) => Promise<void>;
   changeScope: (id: string, scope: Scope) => Promise<void>;
   refreshMarketplaces: () => Promise<void>;
+  addMarketplace: (repo: string) => Promise<void>;
 
   setSearchQuery: (q: string) => void;
   setTypeFilter: (f: TypeFilter) => void;
@@ -148,6 +149,17 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       log.warn("refreshMarketplaces failed (silent)", msg);
+    }
+  },
+
+  addMarketplace: async (repo) => {
+    try {
+      await invoke("add_catalog_marketplace", { repo });
+      await get().fetchCatalog();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      log.error("addMarketplace failed", msg);
+      throw e;
     }
   },
 

@@ -37,6 +37,22 @@ pub fn install_plugin(name: &str, scope: &Scope) -> Result<()> {
     Ok(())
 }
 
+/// Add a marketplace source via `claude plugin marketplace add <repo>`.
+pub fn add_marketplace(repo: &str) -> Result<()> {
+    let status = Command::new("claude")
+        .args(["plugin", "marketplace", "add", repo])
+        .status()
+        .context("failed to invoke claude CLI")?;
+
+    if !status.success() {
+        return Err(anyhow!(
+            "claude plugin marketplace add exited with {}",
+            status
+        ));
+    }
+    Ok(())
+}
+
 /// Uninstall a plugin or standalone skill.
 ///
 /// For plugins (id contains `@`): shells out to `claude plugin uninstall`.

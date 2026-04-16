@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef } from "react";
-import { RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2, Plus, RefreshCw } from "lucide-react";
 
+import * as log from "@/lib/log";
 import { useCatalogStore } from "@/stores/catalogStore";
 
 import { CatalogListItem } from "./CatalogListItem";
@@ -17,6 +18,7 @@ export function SkillsPanel() {
   const selectedEntry = useCatalogStore((s) => s.selectedEntry);
   const fetchCatalog = useCatalogStore((s) => s.fetchCatalog);
   const refreshMarketplaces = useCatalogStore((s) => s.refreshMarketplaces);
+  const addMarketplace = useCatalogStore((s) => s.addMarketplace);
   const setSearchQuery = useCatalogStore((s) => s.setSearchQuery);
   const setTypeFilter = useCatalogStore((s) => s.setTypeFilter);
   const setStatusFilter = useCatalogStore((s) => s.setStatusFilter);
@@ -28,25 +30,44 @@ export function SkillsPanel() {
   const updates = updateCount();
   const listRef = useRef<HTMLDivElement>(null);
 
+  const [addOpen, setAddOpen] = useState(false);
+  const [addRepo, setAddRepo] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [addErr, setAddErr] = useState<string | null>(null);
+
   useEffect(() => {
     void fetchCatalog().then(() => {
-      // Refresh marketplace repos in background after initial load
       void refreshMarketplaces();
     });
   }, [fetchCatalog, refreshMarketplaces]);
 
   const installed = entries.filter((e) => e.installed != null);
   const available = entries.filter((e) => e.installed == null);
-
-  // Flat list for keyboard navigation
   const flatList = [...installed, ...available];
-
   const hasFilters = searchQuery || typeFilter !== "all" || statusFilter !== "all";
 
   function clearFilters() {
     setSearchQuery("");
     setTypeFilter("all");
     setStatusFilter("all");
+  }
+
+  async function handleAddMarketplace() {
+    const repo = addRepo.trim();
+    if (!repo) return;
+    setAdding(true);
+    setAddErr(null);
+    try {
+      await addMarketplace(repo);
+      setAddRepo("");
+      setAddOpen(false);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setAddErr(msg);
+      log.error("add marketplace failed", msg);
+    } finally {
+      setAdding(false);
+    }
   }
 
   const handleKeyDown = useCallback(
@@ -73,7 +94,6 @@ export function SkillsPanel() {
     [flatList, selectedEntry, selectEntry],
   );
 
-  // No marketplaces, no skills, nothing loaded — likely first use
   const isEmpty = !loading && allEntries.length === 0;
 
   return (
@@ -92,10 +112,19 @@ export function SkillsPanel() {
         onStatusChange={setStatusFilter}
       />
 
-      <div className={styles.refreshRow}>
+      <div className={styles.toolbar}>
         <button
           type="button"
-          className={styles.refresh}
+          className={styles.toolbarBtn}
+          onClick={() => setAddOpen(!addOpen)}
+          aria-label="Add marketplace"
+          title="Add marketplace source"
+        >
+          <Plus size={11} />
+        </button>
+        <button
+          type="button"
+          className={styles.toolbarBtn}
           onClick={() => void refreshMarketplaces()}
           aria-label="Refresh marketplaces"
           title="Refresh marketplace catalogs"
@@ -103,6 +132,36 @@ export function SkillsPanel() {
           <RefreshCw size={11} />
         </button>
       </div>
+
+      {addOpen ? (
+        <div className={styles.addForm}>
+          <input
+            className={styles.addInput}
+            type="text"
+            placeholder="owner/repo"
+            value={addRepo}
+            onChange={(e) => setAddRepo(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void handleAddMarketplace();
+              if (e.key === "Escape") setAddOpen(false);
+              e.stopPropagation();
+            }}
+            spellCheck={false}
+            autoComplete="off"
+            disabled={adding}
+            autoFocus
+          />
+          <button
+            type="button"
+            className={styles.addButton}
+            onClick={() => void handleAddMarketplace()}
+            disabled={adding || !addRepo.trim()}
+          >
+            {adding ? <Loader2 size={12} className={styles.spin} /> : "Add"}
+          </button>
+          {addErr ? <p className={styles.addError}>{addErr}</p> : null}
+        </div>
+      ) : null}
 
       {loading ? (
         <div className={styles.skeletons}>
@@ -113,10 +172,11 @@ export function SkillsPanel() {
       ) : isEmpty ? (
         <div className={styles.emptyState}>
           <p className={styles.empty}>
-            No marketplaces configured. Add one with:
+            No marketplaces configured. Click <strong>+</strong> above to add one,
+            or try:
           </p>
           <code className={styles.cliCommand}>
-            claude plugin marketplace add anthropics/claude-plugins-official
+            anthropics/claude-plugins-official
           </code>
         </div>
       ) : entries.length === 0 && hasFilters ? (

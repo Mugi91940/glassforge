@@ -65,6 +65,7 @@ pub fn run() {
             uninstall_catalog_plugin,
             change_catalog_plugin_scope,
             refresh_catalog_marketplaces,
+            add_catalog_marketplace,
             list_dir,
             save_clipboard_image,
             read_image_as_data_url,
@@ -272,6 +273,15 @@ async fn refresh_catalog_marketplaces() -> Result<(), String> {
     tokio::task::spawn_blocking(|| catalog::refresh_marketplaces().map_err(|e| e.to_string()))
         .await
         .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn add_catalog_marketplace(repo: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || {
+        catalog::add_marketplace(&repo).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

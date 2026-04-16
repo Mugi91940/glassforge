@@ -7,13 +7,14 @@
   overflow-y: auto;
 }
 
-.refreshRow {
+.toolbar {
   display: flex;
   justify-content: flex-end;
+  gap: var(--space-1);
   padding: 0 var(--space-1);
 }
 
-.refresh {
+.toolbarBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -28,9 +29,85 @@
     color var(--duration-fast) var(--ease-default);
 }
 
-.refresh:hover {
+.toolbarBtn:hover {
   background: var(--surface-raised);
   color: var(--text-primary);
+}
+
+.addForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: 0 var(--space-1);
+}
+
+.addForm > div {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.addInput {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  background: var(--surface-raised);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--label-md);
+  outline: none;
+  transition: border-color var(--duration-base) var(--ease-default);
+}
+
+.addInput:focus {
+  border-color: color-mix(in srgb, var(--accent-primary) 60%, transparent);
+}
+
+.addInput:disabled {
+  opacity: 0.5;
+}
+
+.addButton {
+  padding: var(--space-1) var(--space-2);
+  background: color-mix(in srgb, var(--accent-primary) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 40%, transparent);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: var(--label-md);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--duration-base) var(--ease-default);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.addButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-primary) 30%, transparent);
+}
+
+.addButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.addError {
+  margin: 0;
+  color: var(--accent-danger);
+  font-size: var(--label-sm);
+  font-family: var(--font-mono);
+  word-break: break-word;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .skeletons {
