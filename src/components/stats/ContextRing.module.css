@@ -53,7 +53,7 @@
 }
 
 .pct {
-  font-size: 0.72rem;
+  font-size: var(--label-md);
   font-weight: 600;
   color: var(--text-primary);
 }

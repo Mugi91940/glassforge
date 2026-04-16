@@ -50,7 +50,7 @@
 .empty {
   margin: 0;
   padding: 0.5rem 0.3rem;
-  font-size: 0.72rem;
+  font-size: var(--label-md);
   color: var(--text-muted);
   line-height: 1.4;
 }
@@ -58,7 +58,7 @@
 .error {
   margin: 0;
   padding: 0.3rem 0.5rem;
-  font-size: 0.7rem;
+  font-size: var(--label-md);
   color: var(--accent-danger);
   font-family: var(--font-mono);
   word-break: break-word;
@@ -132,7 +132,7 @@
 }
 
 .sessionLabel {
-  font-size: 0.72rem;
+  font-size: var(--label-md);
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -176,7 +176,7 @@
   flex: 1;
   min-width: 0;
   font: inherit;
-  font-size: 0.72rem;
+  font-size: var(--label-md);
   font-weight: 500;
   padding: 0.35rem 0.5rem;
   background: var(--surface-sunken);

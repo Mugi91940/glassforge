@@ -32,7 +32,7 @@
 }
 
 .brandName {
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--text-primary);

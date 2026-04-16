@@ -20,7 +20,7 @@
 
 .emptyTitle {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: var(--text-2xl);
   font-weight: 500;
   color: var(--text-primary);
 }
@@ -28,6 +28,6 @@
 .emptySubtitle {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   max-width: 30ch;
 }

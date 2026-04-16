@@ -129,7 +129,7 @@
     color-mix(in srgb, var(--accent-primary) 65%, transparent);
   border-radius: var(--radius-md);
   color: var(--text-primary);
-  font-size: 0.85rem;
+  font-size: var(--text-md);
   font-weight: 500;
   pointer-events: none;
   z-index: var(--z-chrome);
@@ -176,13 +176,13 @@
 
 .slashName {
   font-family: var(--font-mono);
-  font-size: 0.76rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--accent-primary);
 }
 
 .slashDescription {
-  font-size: 0.68rem;
+  font-size: var(--label-md);
   color: var(--text-secondary);
   line-height: 1.35;
 }
@@ -198,7 +198,7 @@
   border-radius: var(--radius-md);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 0.82rem;
+  font-size: var(--text-md);
   line-height: 1.5;
   outline: none;
   transition: border-color var(--duration-base) var(--ease-default), background var(--duration-base) var(--ease-default);

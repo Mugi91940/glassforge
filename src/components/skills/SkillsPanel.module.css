@@ -13,7 +13,7 @@
 }
 
 .label {
-  font-size: 0.68rem;
+  font-size: var(--label-md);
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -34,7 +34,7 @@
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: var(--label-md);
   outline: none;
   transition: border-color var(--duration-base) var(--ease-default), background var(--duration-base) var(--ease-default);
 }
@@ -74,7 +74,7 @@
 .error {
   margin: 0;
   color: var(--accent-danger);
-  font-size: 0.7rem;
+  font-size: var(--label-md);
   font-family: var(--font-mono);
   word-break: break-word;
 }
@@ -88,7 +88,7 @@
 }
 
 .headerLabel {
-  font-size: 0.65rem;
+  font-size: var(--label-sm);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-secondary);
@@ -116,7 +116,7 @@
   padding: 0 0.2rem;
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
 }
 
 .list {
@@ -139,7 +139,7 @@
 }
 
 .skillName {
-  font-size: 0.82rem;
+  font-size: var(--text-md);
   font-weight: 500;
   color: var(--text-primary);
   overflow-wrap: anywhere;
@@ -148,7 +148,7 @@
 
 .skillDescription {
   margin-top: 0.25rem;
-  font-size: 0.72rem;
+  font-size: var(--label-md);
   line-height: 1.4;
   color: var(--text-secondary);
   white-space: pre-wrap;
@@ -159,7 +159,7 @@
 .skillPath {
   margin-top: 0.35rem;
   font-family: var(--font-mono);
-  font-size: 0.62rem;
+  font-size: var(--label-sm);
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;

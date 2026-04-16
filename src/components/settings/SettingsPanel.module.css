@@ -43,7 +43,7 @@
 
 .title {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: var(--text-lg);
   font-weight: 600;
   color: var(--text-primary);
 }

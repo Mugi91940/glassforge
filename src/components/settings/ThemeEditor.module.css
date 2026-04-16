@@ -12,7 +12,7 @@
 
 .sectionTitle {
   margin: 0;
-  font-size: 0.72rem;
+  font-size: var(--label-md);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-secondary);
@@ -33,7 +33,7 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   text-align: left;
   transition: background var(--duration-base) var(--ease-default), border-color var(--duration-base) var(--ease-default);
 }
@@ -66,14 +66,14 @@
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   color: var(--text-primary);
   flex: 1;
   min-width: 0;
 }
 
 .hint {
-  font-size: 0.65rem;
+  font-size: var(--label-sm);
   color: var(--text-muted);
 }
 
@@ -86,7 +86,7 @@
 
 .rowValue {
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: var(--label-md);
   color: var(--text-secondary);
   min-width: 3rem;
   text-align: right;
@@ -113,7 +113,7 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
-  font-size: 0.72rem;
+  font-size: var(--label-md);
   font-family: var(--font-sans);
   min-width: 180px;
   appearance: none;
@@ -158,7 +158,7 @@
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   transition: background var(--duration-base) var(--ease-default), color var(--duration-base) var(--ease-default);
 }
 

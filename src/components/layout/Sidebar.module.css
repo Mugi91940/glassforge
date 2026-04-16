@@ -57,7 +57,7 @@
 }
 
 .label {
-  font-size: 0.7rem;
+  font-size: var(--label-md);
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -79,7 +79,7 @@
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   font-family: var(--font-mono);
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   outline: none;
   transition: border-color var(--duration-base) var(--ease-default), background var(--duration-base) var(--ease-default);
 }
@@ -116,7 +116,7 @@
 }
 
 .modelLabel {
-  font-size: 0.65rem;
+  font-size: var(--label-sm);
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -132,7 +132,7 @@
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: var(--label-md);
   outline: none;
   appearance: none;
   -webkit-appearance: none;
@@ -167,7 +167,7 @@
     color-mix(in srgb, var(--accent-primary) 40%, transparent);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
-  font-size: 0.8rem;
+  font-size: var(--text-md);
   font-weight: 500;
   transition: background var(--duration-base) var(--ease-default), transform var(--duration-fast) var(--ease-default);
 }
@@ -188,7 +188,7 @@
 .error {
   margin: 0;
   color: var(--accent-danger);
-  font-size: 0.72rem;
+  font-size: var(--label-md);
   font-family: var(--font-mono);
   word-break: break-word;
 }
@@ -268,7 +268,7 @@
 }
 
 .historyName {
-  font-size: 0.72rem;
+  font-size: var(--label-md);
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -322,7 +322,7 @@
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
-  font-size: 0.7rem;
+  font-size: var(--label-md);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -343,7 +343,7 @@
 .tabCount {
   font-family: var(--font-mono);
   color: var(--text-muted);
-  font-size: 0.62rem;
+  font-size: var(--label-sm);
 }
 
 .tabBody {
@@ -357,7 +357,7 @@
 .empty {
   margin: 0;
   padding: 0.5rem 0.2rem;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   color: var(--text-muted);
 }
 
