@@ -84,12 +84,10 @@ export const PRESETS: ThemePreset[] = [
     name: "Cyberpunk Neon",
     vars: {
       ...DEFAULT_THEME,
-      bgPrimary: "#0a0319",
-      accentPrimary: "#f472b6",
-      accentSecondary: "#22d3ee",
-      accentGlowOpacity: 0.14,
-      accentGlowRadius: 600,
+      accentGlowOpacity: 0.22,
+      accentGlowRadius: 700,
       glassSaturation: 1.9,
+      glassBgOpacity: 0.06,
     },
   },
   {
@@ -168,6 +166,26 @@ export function applyTheme(vars: ThemeVars): void {
   set("--radius-md", `${vars.radiusMd}px`);
   set("--radius-sm", `${Math.max(4, vars.radiusMd - 4)}px`);
   set("--radius-lg", `${vars.radiusMd + 4}px`);
+
+  // Surface tokens — derived from glassBgOpacity
+  const go = vars.glassBgOpacity;
+  set("--surface-base", `rgba(255, 255, 255, ${(go * 0.5).toFixed(4)})`);
+  set("--surface-raised", `rgba(255, 255, 255, ${go.toFixed(4)})`);
+  set("--surface-overlay", `rgba(255, 255, 255, ${(go * 1.5).toFixed(4)})`);
+  set("--surface-hover", `rgba(255, 255, 255, ${(go * 2).toFixed(4)})`);
+
+  // Derived option-bg from bgPrimary
+  set("--option-bg", lightenHex(vars.bgPrimary, 12));
+}
+
+function lightenHex(hex: string, amount: number): string {
+  let s = hex.trim().replace(/^#/, "");
+  if (s.length === 3) s = s.split("").map((c) => c + c).join("");
+  if (s.length !== 6) return hex;
+  const r = Math.min(255, parseInt(s.slice(0, 2), 16) + amount);
+  const g = Math.min(255, parseInt(s.slice(2, 4), 16) + amount);
+  const b = Math.min(255, parseInt(s.slice(4, 6), 16) + amount);
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
 
 // Accepts `#rgb`, `#rrggbb`, or falls back to `0, 0, 0` if we can't parse.
