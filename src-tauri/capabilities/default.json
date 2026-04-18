@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Default permissions for GlassForge",
-  "windows": ["main"],
+  "windows": ["main", "voice-hud"],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
@@ -14,6 +14,10 @@
     "store:default",
     "log:default",
     "dialog:default",
-    "dialog:allow-open"
+    "dialog:allow-open",
+    "global-shortcut:default",
+    "global-shortcut:allow-register",
+    "global-shortcut:allow-unregister",
+    "global-shortcut:allow-is-registered"
   ]
 }
