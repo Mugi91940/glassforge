@@ -78,8 +78,64 @@ export function useKeyboardShortcuts({
       }
     }
 
+    function voiceCommandHandler(e: Event) {
+      const command = (e as CustomEvent<string>).detail;
+      switch (command) {
+        case "new_session": {
+          const lastPath = projects[0]?.path;
+          if (lastPath) {
+            createSession(lastPath, null)
+              .then((info) => {
+                addSession(info);
+                setActive(info.id);
+                void touch(lastPath);
+              })
+              .catch((err) => log.error("voice new_session failed", String(err)));
+          }
+          break;
+        }
+        case "next_session":
+          if (order.length > 1) {
+            const idx = activeId ? order.indexOf(activeId) : -1;
+            setActive(order[idx >= order.length - 1 ? 0 : idx + 1]);
+          }
+          break;
+        case "prev_session":
+          if (order.length > 1) {
+            const idx = activeId ? order.indexOf(activeId) : -1;
+            setActive(order[idx <= 0 ? order.length - 1 : idx - 1]);
+          }
+          break;
+        case "close_session":
+          if (activeId) {
+            void import("@/lib/tauri-commands").then(({ killSession }) =>
+              killSession(activeId),
+            );
+          }
+          break;
+        case "copy_response": {
+          const lastMsg = document.querySelector(
+            "[data-role='assistant']:last-of-type",
+          );
+          if (lastMsg?.textContent) {
+            void navigator.clipboard.writeText(lastMsg.textContent);
+          }
+          break;
+        }
+        case "stop_speak":
+          void import("@tauri-apps/api/core").then(({ invoke }) =>
+            invoke("voice_speak", { text: "", lang: "fr" }),
+          );
+          break;
+      }
+    }
+
     window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    window.addEventListener("voice:command", voiceCommandHandler);
+    return () => {
+      window.removeEventListener("keydown", handler);
+      window.removeEventListener("voice:command", voiceCommandHandler);
+    };
   }, [
     settingsOpen,
     setSettingsOpen,
