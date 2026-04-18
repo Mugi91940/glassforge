@@ -39,7 +39,7 @@ impl VoiceSidecar {
             .arg(sidecar_path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stderr(if cfg!(debug_assertions) { Stdio::inherit() } else { Stdio::null() })
             .spawn()?;
 
         let stdin = Arc::new(Mutex::new(child.stdin.take().unwrap()));
@@ -51,10 +51,15 @@ impl VoiceSidecar {
             let reader = BufReader::new(stdout);
             for line in reader.lines() {
                 let Ok(line) = line else { break };
-                if let Ok(event) = serde_json::from_str::<SidecarEvent>(&line) {
-                    let _ = app_clone.emit("voice://event", &event);
-                    if matches!(event, SidecarEvent::Ready) {
-                        log::info!("voice sidecar ready");
+                match serde_json::from_str::<SidecarEvent>(&line) {
+                    Ok(event) => {
+                        let _ = app_clone.emit("voice://event", &event);
+                        if matches!(event, SidecarEvent::Ready) {
+                            log::info!("voice sidecar ready");
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("voice sidecar unknown line: {:?} ({e})", line);
                     }
                 }
             }
@@ -71,17 +76,36 @@ impl VoiceSidecar {
     }
 }
 
+impl Drop for VoiceSidecar {
+    fn drop(&mut self) {
+        let cmd = SidecarCmd::Shutdown;
+        if let Ok(mut guard) = self.stdin.lock() {
+            if let Ok(line) = serde_json::to_string(&cmd) {
+                let _ = writeln!(*guard, "{}", line);
+            }
+        }
+        let _ = self._child.kill();
+        let _ = self._child.wait();
+    }
+}
+
 pub struct VoiceState {
     pub sidecar: Mutex<Option<VoiceSidecar>>,
     pub listening: Mutex<bool>,
 }
 
-impl VoiceState {
-    pub fn new() -> Self {
+impl Default for VoiceState {
+    fn default() -> Self {
         Self {
             sidecar: Mutex::new(None),
             listening: Mutex::new(false),
         }
+    }
+}
+
+impl VoiceState {
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 
