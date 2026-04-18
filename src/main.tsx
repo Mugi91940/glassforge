@@ -36,6 +36,33 @@ async function boot() {
   void listen<{ text: string }>("voice://send_message", ({ payload }) => {
     window.dispatchEvent(new CustomEvent("voice:send_message", { detail: payload.text }));
   });
+
+  // Handle voice toggle from main window (always active, unlike hidden HUD)
+  void listen("voice://toggle", async () => {
+    const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+    const { invoke } = await import("@tauri-apps/api/core");
+    const { currentMonitor } = await import("@tauri-apps/api/window");
+
+    const hud = await WebviewWindow.getByLabel("voice-hud");
+    if (!hud) return;
+
+    const isListening = await invoke<boolean>("voice_is_listening");
+
+    if (isListening) {
+      await invoke("voice_stop_listen");
+      await hud.hide();
+    } else {
+      // Position top-center
+      const monitor = await currentMonitor();
+      if (monitor) {
+        const x = Math.floor((monitor.size.width - 440) / 2);
+        await hud.setPosition({ type: "Physical", x, y: 20 } as never);
+      }
+      await hud.show();
+      await hud.setFocus();
+      await invoke("voice_start_listen");
+    }
+  });
 }
 
 void boot();
