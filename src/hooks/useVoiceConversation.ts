@@ -39,6 +39,9 @@ export function useVoiceConversation(): void {
 
   useEffect(() => {
     const preview = activeId && entries ? pickPreview(entries) : [];
-    void emit("voice://conversation", { entries: preview });
+    void emit("voice://conversation", {
+      entries: preview,
+      sessionId: activeId ?? null,
+    });
   }, [activeId, entries]);
 }

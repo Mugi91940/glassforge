@@ -67,6 +67,7 @@ export function VoiceHud() {
   const convScrollRef = useRef<HTMLDivElement | null>(null);
 
   const [pendingPerm, setPendingPerm] = useState<PendingPerm>(null);
+  const activeSessionIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     void usePreferencesStore.getState().load();
@@ -130,12 +131,13 @@ export function VoiceHud() {
       },
     );
 
-    const unlistenConv = listen<{ entries: ConversationEntry[] }>(
-      "voice://conversation",
-      ({ payload }) => {
-        setConversation(payload.entries);
-      },
-    );
+    const unlistenConv = listen<{
+      entries: ConversationEntry[];
+      sessionId: string | null;
+    }>("voice://conversation", ({ payload }) => {
+      setConversation(payload.entries);
+      activeSessionIdRef.current = payload.sessionId;
+    });
 
     const unlistenPerm = listen<PendingPerm>(
       "voice://permission",
@@ -164,6 +166,7 @@ export function VoiceHud() {
         await invoke("voice_stop_listen").catch(() => {});
         setPhase("editing");
       } else if (p === "editing") {
+        userEditedRef.current = false;
         await submitDraft(draftRef.current);
       } else if (p === "idle" || p === "speaking") {
         // Start a fresh listening turn. For "speaking", this cuts the
@@ -209,6 +212,7 @@ export function VoiceHud() {
   };
 
   const handleSend = () => {
+    userEditedRef.current = false;
     void submitDraft(draftRef.current);
   };
 
@@ -229,6 +233,20 @@ export function VoiceHud() {
 
   const handleClose = () => {
     void closeHud();
+  };
+
+  const handleStopClaude = async () => {
+    const sid = activeSessionIdRef.current;
+    if (!sid) return;
+    try {
+      await invoke("kill_session", { sessionId: sid });
+    } catch (e) {
+      console.warn("kill_session failed", e);
+    }
+    // Bring the HUD back to idle so the user can start a new turn
+    // without waiting for the killed child's exit event to propagate.
+    setResponse("Arrêté");
+    setPhase("idle");
   };
 
   const canEdit = phase === "editing";
@@ -322,27 +340,37 @@ export function VoiceHud() {
       )}
 
       <div className={styles.inputRow}>
-        <div className={styles.icon} data-phase={phase}>
-          {phase === "listening" && (
-            <Mic size={16} color="rgba(160,140,255,1)" />
-          )}
-          {phase === "editing" && (
-            <Mic size={16} color="rgba(255,180,60,1)" />
-          )}
-          {phase === "processing" && (
+        {phase === "processing" ? (
+          <button
+            type="button"
+            className={`${styles.icon} ${styles.iconButton}`}
+            data-phase={phase}
+            onClick={() => void handleStopClaude()}
+            aria-label="Arrêter Claude"
+            title="Arrêter Claude"
+          >
             <Circle
               size={10}
-              color="rgba(255,100,100,1)"
-              fill="rgba(255,100,100,0.9)"
+              color="rgba(255,255,255,0.95)"
+              fill="rgba(255,255,255,0.95)"
             />
-          )}
-          {phase === "speaking" && (
-            <Volume2 size={16} color="rgba(60,220,140,1)" />
-          )}
-          {phase === "idle" && (
-            <Mic size={16} color="rgba(200,200,220,0.3)" />
-          )}
-        </div>
+          </button>
+        ) : (
+          <div className={styles.icon} data-phase={phase}>
+            {phase === "listening" && (
+              <Mic size={16} color="rgba(160,140,255,1)" />
+            )}
+            {phase === "editing" && (
+              <Mic size={16} color="rgba(255,180,60,1)" />
+            )}
+            {phase === "speaking" && (
+              <Volume2 size={16} color="rgba(60,220,140,1)" />
+            )}
+            {phase === "idle" && (
+              <Mic size={16} color="rgba(200,200,220,0.3)" />
+            )}
+          </div>
+        )}
 
         <textarea
           ref={inputRef}
@@ -393,11 +421,18 @@ async function closeHud() {
 async function submitDraft(text: string) {
   const clean = text.trim();
   if (!clean) return;
-  const { setPhase, setResponse } = useVoiceStore.getState();
+  const { setPhase, setResponse, setDraft, setTranscript } =
+    useVoiceStore.getState();
 
   const command = await invoke<string | null>("voice_detect_command", {
     text: clean,
   });
+
+  // Clear the input the moment we commit to sending so the user sees
+  // their message leave the field (matches any chat UI they know).
+  setDraft("");
+  setTranscript("");
+
   if (command) {
     await emit("voice://command", { command });
     const label = commandLabel(command);
