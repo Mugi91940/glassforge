@@ -82,9 +82,11 @@ pub fn run() {
                 );
                 app.handle().global_shortcut().on_shortcut(shortcut, |app, _shortcut, event| {
                     if event.state() == ShortcutState::Pressed {
+                        log::info!("voice shortcut pressed, emitting toggle");
                         let _ = app.emit("voice://toggle", ());
                     }
                 })?;
+                log::info!("voice shortcut Ctrl+Alt+O registered");
             }
 
             Ok(())

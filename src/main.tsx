@@ -39,12 +39,14 @@ async function boot() {
 
   // Handle voice toggle from main window (always active, unlike hidden HUD)
   void listen("voice://toggle", async () => {
+    console.log("[voice] toggle event received");
     const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
     const { invoke } = await import("@tauri-apps/api/core");
     const { currentMonitor } = await import("@tauri-apps/api/window");
 
     const hud = await WebviewWindow.getByLabel("voice-hud");
-    if (!hud) return;
+    console.log("[voice] hud window:", hud);
+    if (!hud) { console.error("[voice] voice-hud window not found"); return; }
 
     const isListening = await invoke<boolean>("voice_is_listening");
 
