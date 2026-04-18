@@ -47,7 +47,7 @@ def load_whisper(model_name: str):
 class VoiceSidecar:
     def __init__(self):
         self.model = None
-        self.model_name = "base"
+        self.model_name = "tiny"
         self.listening = False
         self.audio_queue: queue.Queue = queue.Queue()
         self.listen_thread: threading.Thread | None = None
@@ -59,6 +59,20 @@ class VoiceSidecar:
     def ensure_model(self):
         if self.model is None:
             self.model = load_whisper(self.model_name)
+
+    def _transcribe(self, audio: np.ndarray, lang: str):
+        # Speed-tuned: greedy decoding, VAD pre-filter, no timestamps, no
+        # carry-over context (each call stands alone since we re-transcribe
+        # the growing audio buffer on every partial).
+        segs, _ = self.model.transcribe(
+            audio,
+            language=lang,
+            beam_size=1,
+            vad_filter=True,
+            without_timestamps=True,
+            condition_on_previous_text=False,
+        )
+        return " ".join(s.text for s in segs).strip()
 
     def start_listen(self, lang: str = "fr"):
         if self.listening:
@@ -81,6 +95,12 @@ class VoiceSidecar:
         chunks = []
         silence_frames = 0
         silence_limit = int(SILENCE_SECONDS * SAMPLE_RATE / BLOCK_SIZE)
+        # Stream a partial transcript every ~1.5s of audio so the user
+        # sees what's being heard. Saves the last partial so the final
+        # transcript can be emitted instantly when stop_listen fires.
+        partial_every = int(1.5 * SAMPLE_RATE / BLOCK_SIZE)
+        last_partial = ""
+        last_partial_chunk_count = 0
 
         def audio_callback(indata, frames, time, status):
             if self.listening:
@@ -107,21 +127,27 @@ class VoiceSidecar:
                 else:
                     silence_frames = 0
 
-                # Stream partial transcript every ~2 seconds of audio
-                if len(chunks) % 32 == 0 and len(chunks) > 0:
+                if len(chunks) - last_partial_chunk_count >= partial_every:
                     audio = np.concatenate(chunks).flatten()
-                    segs, _ = self.model.transcribe(audio, language=lang)
-                    partial = " ".join(s.text for s in segs).strip()
+                    partial = self._transcribe(audio, lang)
                     if partial:
+                        last_partial = partial
                         emit({"event": "transcript", "text": partial, "final": False})
+                    last_partial_chunk_count = len(chunks)
 
                 if silence_frames >= silence_limit and not self.listening:
                     break
 
-        if chunks:
+        # On stop: if new audio came in since the last partial, do one more
+        # transcribe pass to catch it. Otherwise reuse the stored partial so
+        # the user doesn't wait on a redundant full-audio retranscribe.
+        if chunks and len(chunks) > last_partial_chunk_count:
             audio = np.concatenate(chunks).flatten()
-            segs, _ = self.model.transcribe(audio, language=lang)
-            text = " ".join(s.text for s in segs).strip()
+            text = self._transcribe(audio, lang)
+        else:
+            text = last_partial
+
+        if text:
             emit({"event": "transcript", "text": text, "final": True})
 
     def speak(self, text: str, lang: str = "fr", volume: float = 1.0):
@@ -172,6 +198,13 @@ class VoiceSidecar:
             emit({"event": "error", "message": f"speak failed: {e}"})
 
     def run(self):
+        # Preload whisper so the first turn doesn't pay the model-load cost.
+        # Errors are non-fatal — we still enter the command loop so the user
+        # can retry via set_model.
+        try:
+            self.ensure_model()
+        except Exception as e:
+            emit({"event": "error", "message": f"whisper preload failed: {e}"})
         emit({"event": "ready"})
         for line in sys.stdin:
             line = line.strip()
