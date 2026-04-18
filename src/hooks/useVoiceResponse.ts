@@ -8,22 +8,44 @@ import type { ChatEntry, ClaudeEvent } from "@/lib/types";
 import { usePreferencesStore } from "@/stores/preferencesStore";
 import { useSessionStore } from "@/stores/sessionStore";
 
-const MAX_TTS_CHARS = 400;
+const MAX_TTS_CHARS = 200;
+const MIN_FIRST_SENTENCE = 80;
 
-// Strip markdown noise so TTS doesn't read code, URLs, or backticks aloud.
-function prepareForTts(raw: string): string {
+// Extract only the gist of Claude's reply: strip markdown, keep the first
+// paragraph, then the first sentence (or two if the first is very short).
+// This gives a short spoken summary instead of reading a whole response.
+function extractGist(raw: string): string {
   let clean = raw.replace(/```[\s\S]*?```/g, " ");
   clean = clean.replace(/`[^`]+`/g, "");
   clean = clean.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
-  clean = clean.replace(/\s+/g, " ").trim();
-  if (clean.length <= MAX_TTS_CHARS) return clean;
-  const truncated = clean.slice(0, MAX_TTS_CHARS);
-  const lastStop = Math.max(
-    truncated.lastIndexOf(". "),
-    truncated.lastIndexOf("? "),
-    truncated.lastIndexOf("! "),
-  );
-  return lastStop > 200 ? truncated.slice(0, lastStop + 1) : truncated + "...";
+  clean = clean.replace(/#{1,6}\s+/g, "");
+  clean = clean.replace(/\*\*([^*]+)\*\*/g, "$1");
+  clean = clean.replace(/\*([^*]+)\*/g, "$1");
+  // Strip any remaining asterisks (unclosed bold, bullet markers) and
+  // list bullets at line starts so piper doesn't pronounce them.
+  clean = clean.replace(/^[\s]*[-*•]\s+/gm, "");
+  clean = clean.replace(/\*/g, "");
+
+  const firstPara = clean.split(/\n\n+/)[0].replace(/\s+/g, " ").trim();
+  if (!firstPara) return "";
+
+  const firstSentence = firstPara.match(/^[^.!?]+[.!?]/);
+  if (!firstSentence) {
+    return firstPara.length > MAX_TTS_CHARS
+      ? firstPara.slice(0, MAX_TTS_CHARS) + "..."
+      : firstPara;
+  }
+
+  let result = firstSentence[0].trim();
+  if (result.length < MIN_FIRST_SENTENCE) {
+    const rest = firstPara.slice(firstSentence[0].length).trim();
+    const next = rest.match(/^[^.!?]+[.!?]/);
+    if (next) result += " " + next[0].trim();
+  }
+
+  return result.length > MAX_TTS_CHARS
+    ? result.slice(0, MAX_TTS_CHARS) + "..."
+    : result;
 }
 
 function findLastAssistantText(entries: ChatEntry[]): string | null {
@@ -86,7 +108,7 @@ export function useVoiceResponse(): void {
               usePreferencesStore.getState();
             if (!voiceAutoSpeak) return;
 
-            const spoken = prepareForTts(lastText);
+            const spoken = extractGist(lastText);
             if (!spoken) return;
 
             void emit("voice://response", { text: spoken });
