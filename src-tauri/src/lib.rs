@@ -14,9 +14,15 @@ mod voice;
 use claude::permissions::{Decision, PermissionBroker};
 use claude::{SessionInfo, SessionRegistry};
 use skills::Skill;
+use voice::VoiceState;
+use voice::commands::{
+    voice_detect_command, voice_is_listening, voice_set_model,
+    voice_speak, voice_start_listen, voice_stop_listen,
+};
 
 type RegistryState<'r> = State<'r, Arc<SessionRegistry>>;
 type BrokerState<'r> = State<'r, Arc<PermissionBroker>>;
+type VoiceStateRef<'r> = State<'r, Arc<VoiceState>>;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -29,8 +35,10 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(Arc::new(SessionRegistry::new()))
         .manage(Arc::new(PermissionBroker::new()))
+        .manage(Arc::new(VoiceState::new()))
         .setup(|app| {
             log::info!("glassforge starting up");
             #[cfg(debug_assertions)]
@@ -40,8 +48,39 @@ pub fn run() {
                     window.open_devtools();
                 }
             }
-            #[cfg(not(debug_assertions))]
-            let _ = app;
+            // Spawn voice sidecar
+            {
+                use tauri::Manager;
+                let sidecar_path = app.path()
+                    .resource_dir()
+                    .unwrap_or_default()
+                    .join("sidecar")
+                    .join("voice_sidecar.py");
+                let sidecar_path_str = sidecar_path.to_string_lossy().to_string();
+                let voice_state = app.state::<Arc<VoiceState>>();
+                match voice::VoiceSidecar::spawn(app.handle().clone(), &sidecar_path_str) {
+                    Ok(sc) => {
+                        *voice_state.sidecar.lock().unwrap() = Some(sc);
+                        log::info!("voice sidecar spawned from {}", sidecar_path_str);
+                    }
+                    Err(e) => log::warn!("voice sidecar failed to spawn: {e}"),
+                }
+            }
+
+            // Register Super+V global shortcut
+            {
+                use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, ShortcutState};
+                let shortcut = tauri_plugin_global_shortcut::Shortcut::new(
+                    Some(Modifiers::SUPER),
+                    Code::KeyV,
+                );
+                app.handle().global_shortcut().on_shortcut(shortcut, |app, _shortcut, event| {
+                    if event.state() == ShortcutState::Pressed {
+                        let _ = app.emit("voice://toggle", ());
+                    }
+                })?;
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -73,6 +112,12 @@ pub fn run() {
             set_kde_blur,
             set_kde_blur_strength,
             detect_display_server,
+            voice_start_listen,
+            voice_stop_listen,
+            voice_speak,
+            voice_set_model,
+            voice_is_listening,
+            voice_detect_command,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
