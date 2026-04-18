@@ -37,16 +37,15 @@ async function boot() {
     window.dispatchEvent(new CustomEvent("voice:send_message", { detail: payload.text }));
   });
 
-  // Handle voice toggle from main window (always active, unlike hidden HUD)
+  // Handle voice toggle from main window (HUD is hidden by default and can't receive events)
   void listen("voice://toggle", async () => {
-    console.log("[voice] toggle event received");
     const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
     const { invoke } = await import("@tauri-apps/api/core");
     const { availableMonitors } = await import("@tauri-apps/api/window");
+    const { usePreferencesStore } = await import("@/stores/preferencesStore");
 
     const hud = await WebviewWindow.getByLabel("voice-hud");
-    console.log("[voice] hud window:", hud);
-    if (!hud) { console.error("[voice] voice-hud window not found"); return; }
+    if (!hud) return;
 
     const isVisible = await hud.isVisible();
 
@@ -54,7 +53,6 @@ async function boot() {
       await invoke("voice_stop_listen").catch(() => {});
       await hud.hide();
     } else {
-      // Find DP-1, fallback to first monitor
       const monitors = await availableMonitors();
       const target = monitors.find((m) => m.name === "DP-1") ?? monitors[0];
       if (target) {
@@ -63,7 +61,8 @@ async function boot() {
       }
       await hud.show();
       await hud.setFocus();
-      await invoke("voice_start_listen", { lang: "fr" });
+      const lang = usePreferencesStore.getState().voiceLang;
+      await invoke("voice_start_listen", { lang });
     }
   });
 }

@@ -14,15 +14,14 @@ mod voice;
 use claude::permissions::{Decision, PermissionBroker};
 use claude::{SessionInfo, SessionRegistry};
 use skills::Skill;
-use voice::VoiceState;
 use voice::commands::{
-    voice_detect_command, voice_is_listening, voice_set_model,
-    voice_speak, voice_start_listen, voice_stop_listen,
+    voice_detect_command, voice_is_listening, voice_set_model, voice_speak, voice_start_listen,
+    voice_stop_listen,
 };
+use voice::VoiceState;
 
 type RegistryState<'r> = State<'r, Arc<SessionRegistry>>;
 type BrokerState<'r> = State<'r, Arc<PermissionBroker>>;
-type VoiceStateRef<'r> = State<'r, Arc<VoiceState>>;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -57,7 +56,8 @@ pub fn run() {
                     .join("sidecar")
                     .join("voice_sidecar.py");
                 #[cfg(not(debug_assertions))]
-                let sidecar_path = app.path()
+                let sidecar_path = app
+                    .path()
                     .resource_dir()
                     .unwrap_or_default()
                     .join("sidecar")
@@ -75,18 +75,20 @@ pub fn run() {
 
             // Register Ctrl+Alt+O global shortcut
             {
-                use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, ShortcutState};
+                use tauri_plugin_global_shortcut::{
+                    Code, GlobalShortcutExt, Modifiers, ShortcutState,
+                };
                 let shortcut = tauri_plugin_global_shortcut::Shortcut::new(
                     Some(Modifiers::CONTROL | Modifiers::ALT),
                     Code::KeyO,
                 );
-                app.handle().global_shortcut().on_shortcut(shortcut, |app, _shortcut, event| {
-                    if event.state() == ShortcutState::Pressed {
-                        log::info!("voice shortcut pressed, emitting toggle");
-                        let _ = app.emit("voice://toggle", ());
-                    }
-                })?;
-                log::info!("voice shortcut Ctrl+Alt+O registered");
+                app.handle()
+                    .global_shortcut()
+                    .on_shortcut(shortcut, |app, _shortcut, event| {
+                        if event.state() == ShortcutState::Pressed {
+                            let _ = app.emit("voice://toggle", ());
+                        }
+                    })?;
             }
 
             Ok(())

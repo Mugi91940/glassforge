@@ -47,7 +47,11 @@ impl VoiceSidecar {
             .arg(sidecar_path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(if cfg!(debug_assertions) { Stdio::inherit() } else { Stdio::null() })
+            .stderr(if cfg!(debug_assertions) {
+                Stdio::inherit()
+            } else {
+                Stdio::null()
+            })
             .spawn()?;
 
         let stdin = Arc::new(Mutex::new(child.stdin.take().unwrap()));
@@ -73,7 +77,10 @@ impl VoiceSidecar {
             }
         });
 
-        Ok(Self { stdin, _child: child })
+        Ok(Self {
+            stdin,
+            _child: child,
+        })
     }
 
     pub fn send(&self, cmd: &SidecarCmd) -> anyhow::Result<()> {
@@ -136,6 +143,9 @@ mod tests {
     fn sidecar_event_deserializes_transcript() {
         let json = r#"{"event":"transcript","text":"hello","final":true}"#;
         let event: SidecarEvent = serde_json::from_str(json).unwrap();
-        assert!(matches!(event, SidecarEvent::Transcript { r#final: true, .. }));
+        assert!(matches!(
+            event,
+            SidecarEvent::Transcript { r#final: true, .. }
+        ));
     }
 }

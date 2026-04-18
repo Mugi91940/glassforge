@@ -3,9 +3,9 @@ import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { currentMonitor } from "@tauri-apps/api/window";
 import { Mic, Circle, Volume2 } from "lucide-react";
 
+import { usePreferencesStore } from "@/stores/preferencesStore";
 import { useVoiceStore, type VoicePhase } from "@/stores/voiceStore";
 import styles from "./VoiceHud.module.css";
 
@@ -26,6 +26,10 @@ export function VoiceHud() {
   const reset = useVoiceStore((s) => s.reset);
 
   useEffect(() => {
+    void usePreferencesStore.getState().load();
+  }, []);
+
+  useEffect(() => {
     const win = getCurrentWebviewWindow();
 
     const unlisten = listen<{ event: string; text?: string; final?: boolean; message?: string }>(
@@ -40,31 +44,20 @@ export function VoiceHud() {
             setPhase("listening");
           }
         } else if (payload.event === "speak_done") {
+          const durationMs = usePreferencesStore.getState().voiceHudDuration * 1000;
           setTimeout(() => {
             reset();
             void win.hide();
-          }, 3000);
+          }, durationMs);
+        } else if (payload.event === "error") {
+          setResponse(payload.message ?? "Erreur vocale");
+          setPhase("speaking");
         }
       },
     );
 
-    const unlistenToggle = listen("voice://toggle", async () => {
-      const isListening = await invoke<boolean>("voice_is_listening");
-      if (isListening) {
-        await invoke("voice_stop_listen");
-        setPhase("idle");
-      } else {
-        await positionTopCenter(win);
-        await win.show();
-        await win.setFocus();
-        await invoke("voice_start_listen");
-        setPhase("listening");
-      }
-    });
-
     return () => {
       void unlisten.then((fn) => fn());
-      void unlistenToggle.then((fn) => fn());
     };
   }, [setPhase, setTranscript, setResponse, reset]);
 
@@ -94,36 +87,29 @@ export function VoiceHud() {
   );
 }
 
-async function positionTopCenter(win: ReturnType<typeof getCurrentWebviewWindow>) {
-  try {
-    const monitor = await currentMonitor();
-    if (!monitor) return;
-    const screenW = monitor.size.width;
-    const windowW = 440;
-    const x = Math.floor((screenW - windowW) / 2);
-    await win.setPosition({ type: "Physical", x, y: 20 } as never);
-  } catch {
-    // ignore positioning errors
-  }
-}
-
 async function handleFinalTranscript(text: string) {
   const { setPhase, setResponse } = useVoiceStore.getState();
+  const { voiceLang, voiceAutoSpeak } = usePreferencesStore.getState();
 
   const command = await invoke<string | null>("voice_detect_command", { text });
+  const { emit } = await import("@tauri-apps/api/event");
+
   if (command) {
-    const { emit } = await import("@tauri-apps/api/event");
     await emit("voice://command", { command });
     const label = commandLabel(command);
     setResponse(label);
     setPhase("speaking");
-    await invoke("voice_speak", { text: label, lang: "fr" });
+    if (voiceAutoSpeak) {
+      await invoke("voice_speak", { text: label, lang: voiceLang });
+    }
   } else {
-    const { emit } = await import("@tauri-apps/api/event");
     await emit("voice://send_message", { text });
-    setResponse("Message envoyé à Claude");
+    const label = "Message envoyé à Claude";
+    setResponse(label);
     setPhase("speaking");
-    await invoke("voice_speak", { text: "Message envoyé à Claude", lang: "fr" });
+    if (voiceAutoSpeak) {
+      await invoke("voice_speak", { text: label, lang: voiceLang });
+    }
   }
 }
 

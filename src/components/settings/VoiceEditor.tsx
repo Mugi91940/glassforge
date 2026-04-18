@@ -1,8 +1,13 @@
+import { invoke } from "@tauri-apps/api/core";
+
 import { Dropdown, type DropdownOption } from "@/components/ui/Dropdown";
+import * as log from "@/lib/log";
 import { usePreferencesStore } from "@/stores/preferencesStore";
 import styles from "./ThemeEditor.module.css";
 
-const MODEL_OPTIONS: DropdownOption<"tiny" | "base" | "small" | "medium">[] = [
+type VoiceModel = "tiny" | "base" | "small" | "medium";
+
+const MODEL_OPTIONS: DropdownOption<VoiceModel>[] = [
   { label: "Tiny (rapide, moins précis)", value: "tiny" },
   { label: "Base (recommandé)", value: "base" },
   { label: "Small", value: "small" },
@@ -53,7 +58,12 @@ export function VoiceEditor() {
             ariaLabel="Modèle Whisper"
             options={MODEL_OPTIONS}
             value={voiceModel}
-            onChange={(v) => void setVoiceModel(v)}
+            onChange={(v) => {
+              void setVoiceModel(v);
+              invoke("voice_set_model", { model: v }).catch((e) =>
+                log.warn("voice_set_model failed", e),
+              );
+            }}
           />
         </div>
       </div>
