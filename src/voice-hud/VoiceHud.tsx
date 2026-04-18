@@ -37,7 +37,7 @@ export function VoiceHud() {
             setPhase("processing");
             void handleFinalTranscript(payload.text ?? "");
           } else {
-            setPhase("processing");
+            setPhase("listening");
           }
         } else if (payload.event === "speak_done") {
           setTimeout(() => {
@@ -123,6 +123,7 @@ async function handleFinalTranscript(text: string) {
     await emit("voice://send_message", { text });
     setResponse("Message envoyé à Claude");
     setPhase("speaking");
+    await invoke("voice_speak", { text: "Message envoyé à Claude", lang: "fr" });
   }
 }
 
