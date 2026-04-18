@@ -56,8 +56,17 @@ export function VoiceHud() {
       },
     );
 
+    const unlistenResponse = listen<{ text: string }>(
+      "voice://response",
+      ({ payload }) => {
+        setResponse(payload.text);
+        setPhase("speaking");
+      },
+    );
+
     return () => {
       void unlisten.then((fn) => fn());
+      void unlistenResponse.then((fn) => fn());
     };
   }, [setPhase, setTranscript, setResponse, reset]);
 
@@ -103,13 +112,12 @@ async function handleFinalTranscript(text: string) {
       await invoke("voice_speak", { text: label, lang: voiceLang });
     }
   } else {
+    // Message dictated to Claude: the response TTS is driven by
+    // useVoiceResponse in the main window, which emits voice://response
+    // when Claude's turn completes. We just show a waiting state here.
     await emit("voice://send_message", { text });
-    const label = "Message envoyé à Claude";
-    setResponse(label);
+    setResponse("En attente de la réponse...");
     setPhase("speaking");
-    if (voiceAutoSpeak) {
-      await invoke("voice_speak", { text: label, lang: voiceLang });
-    }
   }
 }
 

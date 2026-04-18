@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
 import * as log from "@/lib/log";
-import { createSession, sendMessage } from "@/lib/tauri-commands";
+import { createSession } from "@/lib/tauri-commands";
 import { useProjectHistoryStore } from "@/stores/projectHistoryStore";
 import { useSessionStore } from "@/stores/sessionStore";
 
@@ -130,21 +130,11 @@ export function useKeyboardShortcuts({
       }
     }
 
-    function voiceSendMessageHandler(e: Event) {
-      const text = (e as CustomEvent<string>).detail;
-      if (!activeId) return;
-      sendMessage(activeId, text).catch((err) =>
-        log.error("voice send_message failed", String(err)),
-      );
-    }
-
     window.addEventListener("keydown", handler);
     window.addEventListener("voice:command", voiceCommandHandler);
-    window.addEventListener("voice:send_message", voiceSendMessageHandler);
     return () => {
       window.removeEventListener("keydown", handler);
       window.removeEventListener("voice:command", voiceCommandHandler);
-      window.removeEventListener("voice:send_message", voiceSendMessageHandler);
     };
   }, [
     settingsOpen,
