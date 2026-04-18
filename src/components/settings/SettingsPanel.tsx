@@ -2,6 +2,7 @@ import { X } from "lucide-react";
 
 import { PreferencesEditor } from "./PreferencesEditor";
 import { ThemeEditor } from "./ThemeEditor";
+import { VoiceEditor } from "./VoiceEditor";
 import styles from "./SettingsPanel.module.css";
 
 type Props = {
@@ -31,6 +32,7 @@ export function SettingsPanel({ onClose }: Props) {
         <div className={styles.body}>
           <PreferencesEditor />
           <ThemeEditor />
+          <VoiceEditor />
         </div>
       </aside>
     </div>

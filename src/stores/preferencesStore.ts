@@ -32,6 +32,10 @@ type Persisted = {
   skipDeleteWarning: boolean;
   smallFastModel: SmallFastModel;
   longContextScope: LongContextScope;
+  voiceModel: "tiny" | "base" | "small" | "medium";
+  voiceLang: "fr" | "en";
+  voiceAutoSpeak: boolean;
+  voiceHudDuration: number;
 };
 
 type PreferencesState = {
@@ -39,6 +43,10 @@ type PreferencesState = {
   skipDeleteWarning: boolean;
   smallFastModel: SmallFastModel;
   longContextScope: LongContextScope;
+  voiceModel: "tiny" | "base" | "small" | "medium";
+  voiceLang: "fr" | "en";
+  voiceAutoSpeak: boolean;
+  voiceHudDuration: number;
   loaded: boolean;
 
   load: () => Promise<void>;
@@ -46,6 +54,10 @@ type PreferencesState = {
   setSkipDeleteWarning: (skip: boolean) => Promise<void>;
   setSmallFastModel: (m: SmallFastModel) => Promise<void>;
   setLongContextScope: (scope: LongContextScope) => Promise<void>;
+  setVoiceModel: (m: "tiny" | "base" | "small" | "medium") => Promise<void>;
+  setVoiceLang: (l: "fr" | "en") => Promise<void>;
+  setVoiceAutoSpeak: (v: boolean) => Promise<void>;
+  setVoiceHudDuration: (s: number) => Promise<void>;
 };
 
 const DEFAULTS: Persisted = {
@@ -53,6 +65,10 @@ const DEFAULTS: Persisted = {
   skipDeleteWarning: false,
   smallFastModel: "haiku",
   longContextScope: "none",
+  voiceModel: "base",
+  voiceLang: "fr",
+  voiceAutoSpeak: true,
+  voiceHudDuration: 4,
 };
 
 function isValidMode(v: unknown): v is PermissionMode {
@@ -88,6 +104,10 @@ function snapshot(state: PreferencesState): Persisted {
     skipDeleteWarning: state.skipDeleteWarning,
     smallFastModel: state.smallFastModel,
     longContextScope: state.longContextScope,
+    voiceModel: state.voiceModel,
+    voiceLang: state.voiceLang,
+    voiceAutoSpeak: state.voiceAutoSpeak,
+    voiceHudDuration: state.voiceHudDuration,
   };
 }
 
@@ -96,6 +116,10 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
   skipDeleteWarning: DEFAULTS.skipDeleteWarning,
   smallFastModel: DEFAULTS.smallFastModel,
   longContextScope: DEFAULTS.longContextScope,
+  voiceModel: DEFAULTS.voiceModel,
+  voiceLang: DEFAULTS.voiceLang,
+  voiceAutoSpeak: DEFAULTS.voiceAutoSpeak,
+  voiceHudDuration: DEFAULTS.voiceHudDuration,
   loaded: false,
 
   load: async () => {
@@ -118,11 +142,27 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
         raw && isValidLongContextScope(raw.longContextScope)
           ? raw.longContextScope
           : DEFAULTS.longContextScope;
+      const voiceModel = raw && ["tiny", "base", "small", "medium"].includes(raw.voiceModel as string)
+        ? (raw.voiceModel as "tiny" | "base" | "small" | "medium")
+        : DEFAULTS.voiceModel;
+      const voiceLang = raw && (raw.voiceLang === "fr" || raw.voiceLang === "en")
+        ? raw.voiceLang
+        : DEFAULTS.voiceLang;
+      const voiceAutoSpeak = raw && typeof raw.voiceAutoSpeak === "boolean"
+        ? raw.voiceAutoSpeak
+        : DEFAULTS.voiceAutoSpeak;
+      const voiceHudDuration = raw && typeof raw.voiceHudDuration === "number"
+        ? raw.voiceHudDuration
+        : DEFAULTS.voiceHudDuration;
       set({
         permissionMode: mode,
         skipDeleteWarning: skip,
         smallFastModel: sfm,
         longContextScope: longCtx,
+        voiceModel,
+        voiceLang,
+        voiceAutoSpeak,
+        voiceHudDuration,
         loaded: true,
       });
     } catch (e) {
@@ -148,6 +188,23 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
 
   setLongContextScope: async (scope) => {
     set({ longContextScope: scope });
+    await persist(snapshot(get()));
+  },
+
+  setVoiceModel: async (voiceModel) => {
+    set({ voiceModel });
+    await persist(snapshot(get()));
+  },
+  setVoiceLang: async (voiceLang) => {
+    set({ voiceLang });
+    await persist(snapshot(get()));
+  },
+  setVoiceAutoSpeak: async (voiceAutoSpeak) => {
+    set({ voiceAutoSpeak });
+    await persist(snapshot(get()));
+  },
+  setVoiceHudDuration: async (voiceHudDuration) => {
+    set({ voiceHudDuration });
     await persist(snapshot(get()));
   },
 }));
