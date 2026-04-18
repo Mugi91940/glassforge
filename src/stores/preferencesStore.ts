@@ -27,12 +27,24 @@ export type SmallFastModel = "auto" | "haiku" | "sonnet" | "opus";
 // for Haiku, so it always stays on the 200k window regardless.
 export type LongContextScope = "none" | "opus" | "opus-sonnet";
 
+// Whisper model size. "distil-large-v3" and "large-v3-turbo" are the best
+// quality/speed compromises on modern hardware; tiny-medium are the classic
+// OpenAI sizes.
+export type VoiceModel =
+  | "tiny"
+  | "base"
+  | "small"
+  | "medium"
+  | "large-v3"
+  | "large-v3-turbo"
+  | "distil-large-v3";
+
 type Persisted = {
   permissionMode: PermissionMode;
   skipDeleteWarning: boolean;
   smallFastModel: SmallFastModel;
   longContextScope: LongContextScope;
-  voiceModel: "tiny" | "base" | "small" | "medium";
+  voiceModel: VoiceModel;
   voiceLang: "fr" | "en";
   voiceAutoSpeak: boolean;
   voiceHudDuration: number;
@@ -44,7 +56,7 @@ type PreferencesState = {
   skipDeleteWarning: boolean;
   smallFastModel: SmallFastModel;
   longContextScope: LongContextScope;
-  voiceModel: "tiny" | "base" | "small" | "medium";
+  voiceModel: VoiceModel;
   voiceLang: "fr" | "en";
   voiceAutoSpeak: boolean;
   voiceHudDuration: number;
@@ -56,7 +68,7 @@ type PreferencesState = {
   setSkipDeleteWarning: (skip: boolean) => Promise<void>;
   setSmallFastModel: (m: SmallFastModel) => Promise<void>;
   setLongContextScope: (scope: LongContextScope) => Promise<void>;
-  setVoiceModel: (m: "tiny" | "base" | "small" | "medium") => Promise<void>;
+  setVoiceModel: (m: VoiceModel) => Promise<void>;
   setVoiceLang: (l: "fr" | "en") => Promise<void>;
   setVoiceAutoSpeak: (v: boolean) => Promise<void>;
   setVoiceHudDuration: (s: number) => Promise<void>;
@@ -90,6 +102,20 @@ function isValidSmallFastModel(v: unknown): v is SmallFastModel {
 
 function isValidLongContextScope(v: unknown): v is LongContextScope {
   return v === "none" || v === "opus" || v === "opus-sonnet";
+}
+
+const VOICE_MODELS: readonly VoiceModel[] = [
+  "tiny",
+  "base",
+  "small",
+  "medium",
+  "large-v3",
+  "large-v3-turbo",
+  "distil-large-v3",
+];
+
+function isValidVoiceModel(v: unknown): v is VoiceModel {
+  return typeof v === "string" && (VOICE_MODELS as readonly string[]).includes(v);
 }
 
 async function persist(next: Persisted): Promise<void> {
@@ -148,8 +174,8 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
         raw && isValidLongContextScope(raw.longContextScope)
           ? raw.longContextScope
           : DEFAULTS.longContextScope;
-      const voiceModel = raw && ["tiny", "base", "small", "medium"].includes(raw.voiceModel as string)
-        ? (raw.voiceModel as "tiny" | "base" | "small" | "medium")
+      const voiceModel = raw && isValidVoiceModel(raw.voiceModel)
+        ? raw.voiceModel
         : DEFAULTS.voiceModel;
       const voiceLang = raw && (raw.voiceLang === "fr" || raw.voiceLang === "en")
         ? raw.voiceLang

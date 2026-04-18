@@ -48,9 +48,36 @@ def emit(event: dict):
     print(json.dumps(event), flush=True)
 
 
+def _detect_device():
+    """Pick the best device/compute_type available.
+
+    faster-whisper runs on CTranslate2. CUDA gives a 5-10x speedup on
+    modern GPUs; on CPU, int8 quantization is the fastest path.
+    """
+    try:
+        import ctranslate2
+        if ctranslate2.get_cuda_device_count() > 0:
+            return "cuda", "float16"
+    except Exception:
+        pass
+    return "cpu", "int8"
+
+
 def load_whisper(model_name: str):
     from faster_whisper import WhisperModel
-    return WhisperModel(model_name, device="cpu", compute_type="int8")
+    device, compute_type = _detect_device()
+    try:
+        return WhisperModel(model_name, device=device, compute_type=compute_type)
+    except Exception as e:
+        # cuda can fail at load time even after get_cuda_device_count says >0
+        # (missing libs, driver mismatch). Fall back to CPU int8.
+        if device == "cuda":
+            emit({
+                "event": "error",
+                "message": f"cuda load failed, falling back to cpu: {e}",
+            })
+            return WhisperModel(model_name, device="cpu", compute_type="int8")
+        raise
 
 
 class VoiceSidecar:

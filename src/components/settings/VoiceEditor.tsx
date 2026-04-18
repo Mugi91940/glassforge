@@ -2,16 +2,26 @@ import { invoke } from "@tauri-apps/api/core";
 
 import { Dropdown, type DropdownOption } from "@/components/ui/Dropdown";
 import * as log from "@/lib/log";
-import { usePreferencesStore } from "@/stores/preferencesStore";
+import {
+  usePreferencesStore,
+  type VoiceModel,
+} from "@/stores/preferencesStore";
 import styles from "./ThemeEditor.module.css";
 
-type VoiceModel = "tiny" | "base" | "small" | "medium";
-
 const MODEL_OPTIONS: DropdownOption<VoiceModel>[] = [
-  { label: "Tiny (rapide, moins précis)", value: "tiny" },
-  { label: "Base (recommandé)", value: "base" },
-  { label: "Small", value: "small" },
-  { label: "Medium (lent, plus précis)", value: "medium" },
+  { label: "Tiny — très rapide, précision faible", value: "tiny" },
+  { label: "Base — rapide, précision correcte", value: "base" },
+  { label: "Small — équilibré", value: "small" },
+  { label: "Medium — plus précis, plus lent", value: "medium" },
+  {
+    label: "Distil Large v3 — qualité haute, rapide (recommandé)",
+    value: "distil-large-v3",
+  },
+  {
+    label: "Large v3 Turbo — qualité élevée, rapide",
+    value: "large-v3-turbo",
+  },
+  { label: "Large v3 — qualité maximale, lent sans GPU", value: "large-v3" },
 ];
 
 const LANG_OPTIONS: DropdownOption<"fr" | "en">[] = [
@@ -51,7 +61,9 @@ export function VoiceEditor() {
         <div className={styles.rowLabel}>
           Modèle Whisper
           <span className={styles.hint}>
-            Base offre le meilleur compromis vitesse/précision.
+            La première utilisation de chaque modèle télécharge les poids
+            (~150 Mo pour base, ~1.5 Go pour les Large). Le sidecar utilise
+            le GPU automatiquement si CUDA est disponible.
           </span>
         </div>
         <div className={styles.rowControl}>
