@@ -22,6 +22,9 @@ import json
 import sys
 import threading
 import queue
+import subprocess
+import glob
+import os
 import numpy as np
 import sounddevice as sd
 
@@ -48,7 +51,6 @@ class VoiceSidecar:
         self.listening = False
         self.audio_queue: queue.Queue = queue.Queue()
         self.listen_thread: threading.Thread | None = None
-        self.piper_voice = None
 
     def set_model(self, model_name: str):
         self.model_name = model_name
@@ -62,35 +64,38 @@ class VoiceSidecar:
         if self.listening:
             return
         self.listening = True
-        self.audio_queue = queue.Queue()
+        audio_queue = queue.Queue()
+        self.audio_queue = audio_queue
         self.listen_thread = threading.Thread(
-            target=self._record_and_transcribe, daemon=True
+            target=self._record_and_transcribe,
+            args=(audio_queue,),
+            daemon=True,
         )
         self.listen_thread.start()
 
     def stop_listen(self):
         self.listening = False
 
-    def _audio_callback(self, indata, frames, time, status):
-        if self.listening:
-            self.audio_queue.put(indata.copy())
-
-    def _record_and_transcribe(self):
+    def _record_and_transcribe(self, audio_queue: queue.Queue):
         self.ensure_model()
         chunks = []
         silence_frames = 0
         silence_limit = int(SILENCE_SECONDS * SAMPLE_RATE / BLOCK_SIZE)
+
+        def audio_callback(indata, frames, time, status):
+            if self.listening:
+                audio_queue.put(indata.copy())
 
         with sd.InputStream(
             samplerate=SAMPLE_RATE,
             channels=CHANNELS,
             dtype="float32",
             blocksize=BLOCK_SIZE,
-            callback=self._audio_callback,
+            callback=audio_callback,
         ):
-            while self.listening or not self.audio_queue.empty():
+            while self.listening or not audio_queue.empty():
                 try:
-                    chunk = self.audio_queue.get(timeout=0.1)
+                    chunk = audio_queue.get(timeout=0.1)
                 except queue.Empty:
                     continue
 
@@ -121,13 +126,9 @@ class VoiceSidecar:
 
     def speak(self, text: str, lang: str = "fr"):
         try:
-            from piper.voice import PiperVoice
-            import wave, io, subprocess
-
             # Detect first available piper model in ~/.local/share/piper/
-            import glob as _glob, os as _os
-            model_dir = _os.path.expanduser("~/.local/share/piper/")
-            models = _glob.glob(f"{model_dir}*.onnx")
+            model_dir = os.path.expanduser("~/.local/share/piper/")
+            models = glob.glob(f"{model_dir}*.onnx")
             model_path = models[0] if models else f"{model_dir}fr_FR-upmc-medium.onnx"
             proc = subprocess.run(
                 ["piper", "--model", model_path, "--output-raw"],
@@ -137,7 +138,10 @@ class VoiceSidecar:
             if proc.returncode == 0:
                 audio = np.frombuffer(proc.stdout, dtype=np.int16).astype(np.float32) / 32768.0
                 sd.play(audio, samplerate=22050, blocking=True)
-            emit({"event": "speak_done"})
+                emit({"event": "speak_done"})
+            else:
+                stderr = proc.stderr.decode(errors="replace").strip()
+                emit({"event": "error", "message": f"piper exited {proc.returncode}: {stderr}"})
         except Exception as e:
             emit({"event": "error", "message": f"speak failed: {e}"})
 
