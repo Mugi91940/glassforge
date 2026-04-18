@@ -115,7 +115,14 @@ class VoiceSidecar:
                     if partial:
                         emit({"event": "transcript", "text": partial, "final": False})
 
-                if silence_frames >= silence_limit and not self.listening:
+                # Auto-stop on sustained silence once we've captured some speech.
+                # `chunks` having voice-level RMS ensures we don't bail before the
+                # user has even started talking.
+                if (
+                    silence_frames >= silence_limit
+                    and len(chunks) > silence_limit
+                ):
+                    self.listening = False
                     break
 
         if chunks:
@@ -126,22 +133,46 @@ class VoiceSidecar:
 
     def speak(self, text: str, lang: str = "fr"):
         try:
+            if not text.strip():
+                emit({"event": "speak_done"})
+                return
             # Detect first available piper model in ~/.local/share/piper/
             model_dir = os.path.expanduser("~/.local/share/piper/")
             models = glob.glob(f"{model_dir}*.onnx")
-            model_path = models[0] if models else f"{model_dir}fr_FR-upmc-medium.onnx"
+            if not models:
+                emit({"event": "error", "message": f"no piper model in {model_dir}"})
+                return
+            model_path = models[0]
+
+            # Prefer the piper binary next to the running interpreter (venv/bin/piper);
+            # fall back to PATH. subprocess doesn't inherit venv activation, so plain
+            # "piper" fails when the sidecar is launched from a venv.
+            piper_bin = os.path.join(os.path.dirname(sys.executable), "piper")
+            if not os.path.exists(piper_bin):
+                piper_bin = "piper"
+
             proc = subprocess.run(
-                ["piper", "--model", model_path, "--output-raw"],
+                [piper_bin, "--model", model_path, "--output-raw"],
                 input=text.encode(),
                 capture_output=True,
             )
-            if proc.returncode == 0:
-                audio = np.frombuffer(proc.stdout, dtype=np.int16).astype(np.float32) / 32768.0
-                sd.play(audio, samplerate=22050, blocking=True)
-                emit({"event": "speak_done"})
-            else:
+            if proc.returncode != 0:
                 stderr = proc.stderr.decode(errors="replace").strip()
                 emit({"event": "error", "message": f"piper exited {proc.returncode}: {stderr}"})
+                return
+
+            # Read the actual sample rate from the model config instead of assuming 22050.
+            sample_rate = 22050
+            try:
+                with open(f"{model_path}.json", "r", encoding="utf-8") as fh:
+                    cfg = json.load(fh)
+                    sample_rate = int(cfg.get("audio", {}).get("sample_rate", sample_rate))
+            except Exception:
+                pass
+
+            audio = np.frombuffer(proc.stdout, dtype=np.int16).astype(np.float32) / 32768.0
+            sd.play(audio, samplerate=sample_rate, blocking=True)
+            emit({"event": "speak_done"})
         except Exception as e:
             emit({"event": "error", "message": f"speak failed: {e}"})
 
