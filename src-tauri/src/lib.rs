@@ -9,6 +9,7 @@ mod config;
 mod fs_browse;
 mod kde;
 mod skills;
+mod voice;
 
 use claude::permissions::{Decision, PermissionBroker};
 use claude::{SessionInfo, SessionRegistry};
