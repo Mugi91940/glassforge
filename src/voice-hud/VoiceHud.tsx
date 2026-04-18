@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { Mic, Circle, Volume2, Send } from "lucide-react";
+import { Mic, Circle, Volume2, Send, X } from "lucide-react";
 
 import { usePreferencesStore } from "@/stores/preferencesStore";
 import {
@@ -36,6 +36,9 @@ export function VoiceHud() {
 
   const phaseRef = useRef(phase);
   const draftRef = useRef(draft);
+  // Tracks whether the user has manually edited the draft this turn.
+  // If true, an incoming final transcript won't clobber their edits.
+  const userEditedRef = useRef(false);
   useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
@@ -67,8 +70,6 @@ export function VoiceHud() {
   }, [phase]);
 
   useEffect(() => {
-    const win = getCurrentWebviewWindow();
-
     const unlistenEvent = listen<{
       event: string;
       text?: string;
@@ -79,26 +80,23 @@ export function VoiceHud() {
         const text = payload.text ?? "";
         setTranscript(text);
         if (payload.final) {
-          // Stop-listen was triggered → fill the editable draft with the
-          // final transcript so the user can tweak it before sending.
-          setDraft(text);
-          setPhase("editing");
+          // Only override the draft if the user hasn't started editing
+          // since they hit stop — otherwise we'd clobber their fixes.
+          if (!userEditedRef.current) setDraft(text);
+          if (phaseRef.current !== "editing") setPhase("editing");
         } else {
-          // Live partial — mirror into the draft and ensure we're in the
-          // listening phase so the UI reflects it.
           const p = phaseRef.current;
           if (p === "idle" || p === "listening") {
-            setDraft(text);
+            if (!userEditedRef.current) setDraft(text);
             if (p !== "listening") setPhase("listening");
           }
         }
       } else if (payload.event === "speak_done") {
-        const durationMs =
-          usePreferencesStore.getState().voiceHudDuration * 1000;
-        setTimeout(() => {
-          reset();
-          void win.hide();
-        }, durationMs);
+        // Don't auto-hide — the user wants the HUD to stay until they
+        // dismiss it. Just reset to idle so the next shortcut press
+        // starts a fresh listening turn.
+        setPhase("idle");
+        setResponse("");
       } else if (payload.event === "error") {
         setResponse(payload.message ?? "Erreur vocale");
         setPhase("speaking");
@@ -122,22 +120,38 @@ export function VoiceHud() {
 
     const unlistenOpened = listen("voice://opened", () => {
       reset();
+      userEditedRef.current = false;
       setPhase("listening");
     });
 
-    // Owning the toggle only when HUD is visible lets main.tsx own the
-    // open-from-hidden case. Checking phase here gives "send on 3rd press".
-    const unlistenToggle = listen("voice://toggle", async () => {
-      if (!(await win.isVisible())) return;
+    // main.tsx forwards the shortcut as voice://toggle-visible when the
+    // HUD is already on screen. Listening only to this variant (and not
+    // the raw voice://toggle) prevents a race where this handler fires
+    // right after main.tsx calls hud.show() and immediately dismisses it.
+    const unlistenToggle = listen("voice://toggle-visible", async () => {
       const p = phaseRef.current;
       if (p === "listening") {
+        // Instant UX: flip to editing *now* using the latest draft so
+        // the user sees the transition immediately. The sidecar's final
+        // transcript may arrive a moment later and refine the draft
+        // (unless the user has already started editing).
         await invoke("voice_stop_listen").catch(() => {});
-        // Phase flip to "editing" happens when the final transcript lands.
+        setPhase("editing");
       } else if (p === "editing") {
         await submitDraft(draftRef.current);
-      } else {
-        await win.hide();
+      } else if (p === "idle" || p === "speaking") {
+        // Start a fresh listening turn. For "speaking", this cuts the
+        // wait — user can dictate the next message while the reply TTS
+        // finishes in the background.
+        userEditedRef.current = false;
+        reset();
+        setPhase("listening");
+        const { voiceLang } = usePreferencesStore.getState();
+        await invoke("voice_start_listen", { lang: voiceLang }).catch(
+          () => {},
+        );
       }
+      // processing: intentionally a no-op — don't interrupt Claude.
     });
 
     return () => {
@@ -153,14 +167,23 @@ export function VoiceHud() {
     void submitDraft(draftRef.current);
   };
 
+  const handleDraftChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    userEditedRef.current = true;
+    setDraft(e.target.value);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     } else if (e.key === "Escape") {
       e.preventDefault();
-      void getCurrentWebviewWindow().hide();
+      void closeHud();
     }
+  };
+
+  const handleClose = () => {
+    void closeHud();
   };
 
   const canEdit = phase === "editing";
@@ -168,6 +191,20 @@ export function VoiceHud() {
 
   return (
     <div className={styles.hud}>
+      <div className={styles.titleBar} data-tauri-drag-region>
+        <span className={styles.titleLabel} data-tauri-drag-region>
+          GlassForge Voice
+        </span>
+        <button
+          type="button"
+          className={styles.closeButton}
+          onClick={handleClose}
+          aria-label="Fermer"
+          title="Fermer (Échap)"
+        >
+          <X size={12} />
+        </button>
+      </div>
       <div className={styles.conversation} ref={convScrollRef}>
         {conversation.length === 0 ? (
           <div className={styles.convEmpty}>Aucune conversation active</div>
@@ -218,7 +255,7 @@ export function VoiceHud() {
           placeholder={
             phase === "listening" ? "Parlez..." : "Parlez puis corrigez..."
           }
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={handleDraftChange}
           onKeyDown={handleKeyDown}
           rows={3}
         />
@@ -245,6 +282,15 @@ export function VoiceHud() {
       </div>
     </div>
   );
+}
+
+async function closeHud() {
+  const win = getCurrentWebviewWindow();
+  // Stop any in-flight listening so the sidecar doesn't keep recording
+  // in the background after the user closes the HUD.
+  await invoke("voice_stop_listen").catch(() => {});
+  useVoiceStore.getState().reset();
+  await win.hide();
 }
 
 async function submitDraft(text: string) {

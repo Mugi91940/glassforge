@@ -42,7 +42,7 @@
         "center": false,
         "x": 0,
         "y": 20,
-        "skipTaskbar": true
+        "skipTaskbar": false
       }
     ],
     "security": {
