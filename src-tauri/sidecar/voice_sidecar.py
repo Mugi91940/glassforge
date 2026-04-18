@@ -44,6 +44,11 @@ def emit(event: dict):
     print(json.dumps(event), flush=True)
 
 
+def log(msg: str):
+    """Debug log to stderr — visible in `tauri dev` terminal."""
+    print(f"[voice] {msg}", file=sys.stderr, flush=True)
+
+
 def _detect_device():
     """Pick the best device/compute_type available.
 
@@ -62,8 +67,11 @@ def _detect_device():
 def load_whisper(model_name: str):
     from faster_whisper import WhisperModel
     device, compute_type = _detect_device()
+    log(f"loading whisper model={model_name} device={device} compute={compute_type}")
     try:
-        return WhisperModel(model_name, device=device, compute_type=compute_type)
+        model = WhisperModel(model_name, device=device, compute_type=compute_type)
+        log(f"whisper ready: {model_name}")
+        return model
     except Exception as e:
         # cuda can fail at load time even after get_cuda_device_count says >0
         # (missing libs, driver mismatch). Fall back to CPU int8.
@@ -72,7 +80,10 @@ def load_whisper(model_name: str):
                 "event": "error",
                 "message": f"cuda load failed, falling back to cpu: {e}",
             })
-            return WhisperModel(model_name, device="cpu", compute_type="int8")
+            log(f"cuda failed, retrying on cpu: {e}")
+            model = WhisperModel(model_name, device="cpu", compute_type="int8")
+            log(f"whisper ready (cpu fallback): {model_name}")
+            return model
         raise
 
 
@@ -94,7 +105,9 @@ class VoiceSidecar:
         if self.model is None:
             self.model = load_whisper(self.model_name)
 
-    def _transcribe(self, audio: np.ndarray, lang: str, final: bool = False):
+    def _transcribe(
+        self, audio: np.ndarray, lang: str, final: bool = False
+    ):
         """
         Run Whisper on `audio`.
 
@@ -104,6 +117,14 @@ class VoiceSidecar:
         trade accuracy for latency, the final result doesn't have to.
         """
         lang_code = lang if lang in ("fr", "en") else "fr"
+        # Diagnostic log so we can see which language the sidecar actually
+        # received. If you see `lang='en'` here while dictating French,
+        # the frontend (voiceLang pref) is the culprit, not Whisper.
+        if final:
+            log(
+                f"final transcribe lang={lang_code!r} "
+                f"model={self.model_name}"
+            )
 
         # Normalize audio so Whisper sees a consistent amplitude regardless
         # of mic gain. Peak-normalize to ~0.9 so we don't clip.

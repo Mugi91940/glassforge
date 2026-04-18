@@ -174,9 +174,16 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
         raw && isValidLongContextScope(raw.longContextScope)
           ? raw.longContextScope
           : DEFAULTS.longContextScope;
-      const voiceModel = raw && isValidVoiceModel(raw.voiceModel)
+      // One-time migration: tiny is too unreliable for French (it silently
+      // emits English even with language="fr"). Anyone still on tiny —
+      // either from the old default or a manual pick — gets bumped to
+      // distil-large-v3, the current recommended balance of speed and
+      // quality. We persist the new value so this only runs once.
+      const rawModel = raw && isValidVoiceModel(raw.voiceModel)
         ? raw.voiceModel
         : DEFAULTS.voiceModel;
+      const voiceModel: VoiceModel =
+        rawModel === "tiny" ? "distil-large-v3" : rawModel;
       const voiceLang = raw && (raw.voiceLang === "fr" || raw.voiceLang === "en")
         ? raw.voiceLang
         : DEFAULTS.voiceLang;
@@ -201,6 +208,11 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
         voiceVolume,
         loaded: true,
       });
+      // Persist the migrated voiceModel if it changed, so next boot skips
+      // the migration branch.
+      if (rawModel !== voiceModel) {
+        await persist(snapshot(get()));
+      }
     } catch (e) {
       log.warn("preferences load failed", e);
       set({ loaded: true });
