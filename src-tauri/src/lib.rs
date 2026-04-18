@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use tauri::{AppHandle, State, WebviewWindow};
+use tauri::{AppHandle, Emitter, State, WebviewWindow};
 
 mod attachments;
 mod catalog;

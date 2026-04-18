@@ -1,6 +1,6 @@
 // src-tauri/src/voice/commands.rs
 use std::sync::Arc;
-use tauri::{AppHandle, State};
+use tauri::State;
 
 use crate::voice::{SidecarCmd, VoiceState};
 
