@@ -65,7 +65,7 @@ const DEFAULTS: Persisted = {
   skipDeleteWarning: false,
   smallFastModel: "haiku",
   longContextScope: "none",
-  voiceModel: "base",
+  voiceModel: "tiny",
   voiceLang: "fr",
   voiceAutoSpeak: true,
   voiceHudDuration: 4,

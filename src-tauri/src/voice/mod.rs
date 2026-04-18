@@ -21,7 +21,7 @@ pub enum SidecarEvent {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "cmd", rename_all = "snake_case")]
 pub enum SidecarCmd {
-    StartListen,
+    StartListen { lang: String },
     StopListen,
     Speak { text: String, lang: String },
     SetModel { model: String },

@@ -63,7 +63,7 @@ async function boot() {
       }
       await hud.show();
       await hud.setFocus();
-      await invoke("voice_start_listen");
+      await invoke("voice_start_listen", { lang: "fr" });
     }
   });
 }

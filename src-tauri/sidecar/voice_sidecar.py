@@ -60,7 +60,7 @@ class VoiceSidecar:
         if self.model is None:
             self.model = load_whisper(self.model_name)
 
-    def start_listen(self):
+    def start_listen(self, lang: str = "fr"):
         if self.listening:
             return
         self.listening = True
@@ -68,7 +68,7 @@ class VoiceSidecar:
         self.audio_queue = audio_queue
         self.listen_thread = threading.Thread(
             target=self._record_and_transcribe,
-            args=(audio_queue,),
+            args=(audio_queue, lang),
             daemon=True,
         )
         self.listen_thread.start()
@@ -76,7 +76,7 @@ class VoiceSidecar:
     def stop_listen(self):
         self.listening = False
 
-    def _record_and_transcribe(self, audio_queue: queue.Queue):
+    def _record_and_transcribe(self, audio_queue: queue.Queue, lang: str = "fr"):
         self.ensure_model()
         chunks = []
         silence_frames = 0
@@ -110,7 +110,7 @@ class VoiceSidecar:
                 # Stream partial transcript every ~2 seconds of audio
                 if len(chunks) % 32 == 0 and len(chunks) > 0:
                     audio = np.concatenate(chunks).flatten()
-                    segs, _ = self.model.transcribe(audio, language=None)
+                    segs, _ = self.model.transcribe(audio, language=lang)
                     partial = " ".join(s.text for s in segs).strip()
                     if partial:
                         emit({"event": "transcript", "text": partial, "final": False})
@@ -120,7 +120,7 @@ class VoiceSidecar:
 
         if chunks:
             audio = np.concatenate(chunks).flatten()
-            segs, _ = self.model.transcribe(audio, language=None)
+            segs, _ = self.model.transcribe(audio, language=lang)
             text = " ".join(s.text for s in segs).strip()
             emit({"event": "transcript", "text": text, "final": True})
 
@@ -158,7 +158,7 @@ class VoiceSidecar:
 
             name = cmd.get("cmd")
             if name == "start_listen":
-                self.start_listen()
+                self.start_listen(cmd.get("lang", "fr"))
             elif name == "stop_listen":
                 self.stop_listen()
             elif name == "speak":

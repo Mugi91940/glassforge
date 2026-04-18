@@ -7,10 +7,11 @@ use crate::voice::{SidecarCmd, VoiceState};
 type VoiceStateRef<'r> = State<'r, Arc<VoiceState>>;
 
 #[tauri::command]
-pub fn voice_start_listen(state: VoiceStateRef<'_>) -> Result<(), String> {
+pub fn voice_start_listen(state: VoiceStateRef<'_>, lang: Option<String>) -> Result<(), String> {
     let guard = state.sidecar.lock().unwrap();
     if let Some(sc) = guard.as_ref() {
-        sc.send(&SidecarCmd::StartListen).map_err(|e| e.to_string())?;
+        sc.send(&SidecarCmd::StartListen { lang: lang.unwrap_or_else(|| "fr".into()) })
+            .map_err(|e| e.to_string())?;
         drop(guard);
         *state.listening.lock().unwrap() = true;
         Ok(())
