@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 
 import { MainPanel } from "@/components/layout/MainPanel";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -27,7 +28,18 @@ function App() {
 
   useEffect(() => {
     loadTheme().catch((e) => log.warn("theme load failed", e));
-    loadPrefs().catch((e) => log.warn("preferences load failed", e));
+    // After prefs load, push the saved voice model to the sidecar so it
+    // stops using its internal default and loads the right weights up
+    // front (first use of a large model downloads ~1.5 GB, so we'd rather
+    // pay that now than in the middle of a dictation turn).
+    loadPrefs()
+      .then(() => {
+        const model = usePreferencesStore.getState().voiceModel;
+        invoke("voice_set_model", { model }).catch((e) =>
+          log.warn("voice_set_model on boot failed", e),
+        );
+      })
+      .catch((e) => log.warn("preferences load failed", e));
     loadNames().catch((e) => log.warn("sessionNames load failed", e));
     listSessions()
       .then(setSessions)

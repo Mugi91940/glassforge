@@ -38,10 +38,6 @@ SILENCE_SECONDS = 1.5
 # transcription thread re-runs Whisper on the growing buffer at this
 # cadence and emits the latest text.
 PARTIAL_INTERVAL_S = 0.8
-# Biases Whisper toward conversational French and reduces hallucinated
-# boilerplate on very short utterances.
-INITIAL_PROMPT_FR = "Bonjour, je vais dicter un message."
-INITIAL_PROMPT_EN = "Hello, I'm going to dictate a message."
 
 
 def emit(event: dict):
@@ -83,7 +79,9 @@ def load_whisper(model_name: str):
 class VoiceSidecar:
     def __init__(self):
         self.model = None
-        self.model_name = "tiny"
+        # Matches the frontend default. The frontend calls set_model()
+        # right after load() if the user has picked something else.
+        self.model_name = "distil-large-v3"
         self.listening = False
         self.audio_queue: queue.Queue = queue.Queue()
         self.listen_thread: threading.Thread | None = None
@@ -96,27 +94,40 @@ class VoiceSidecar:
         if self.model is None:
             self.model = load_whisper(self.model_name)
 
-    def _transcribe(self, audio: np.ndarray, lang: str):
-        # Speed-tuned: greedy decoding, VAD pre-filter, no timestamps, no
-        # carry-over context (each call stands alone since we re-transcribe
-        # the growing audio buffer on every partial).
-        # Normalize to a supported language code — defensive in case the
-        # frontend ever forwards something unexpected (e.g. an empty string
-        # which lets Whisper auto-detect and sometimes translate).
+    def _transcribe(self, audio: np.ndarray, lang: str, final: bool = False):
+        """
+        Run Whisper on `audio`.
+
+        `final=False` (streaming partial): greedy beam=1 for speed.
+        `final=True` (after stop_listen): beam=5 for accuracy. Same params
+        Whisper was originally tuned against in the paper — partials
+        trade accuracy for latency, the final result doesn't have to.
+        """
         lang_code = lang if lang in ("fr", "en") else "fr"
-        prompt = INITIAL_PROMPT_EN if lang_code == "en" else INITIAL_PROMPT_FR
+
+        # Normalize audio so Whisper sees a consistent amplitude regardless
+        # of mic gain. Peak-normalize to ~0.9 so we don't clip.
+        peak = float(np.max(np.abs(audio))) if audio.size else 0.0
+        if peak > 1e-4:
+            audio = (audio / peak) * 0.9
+
         segs, _ = self.model.transcribe(
             audio,
             language=lang_code,
-            # Force transcription (keep the source language). Without this,
-            # Whisper can silently translate French input into English on
-            # smaller models (tiny/base), which is what the user was seeing.
+            # Force transcription (keep the source language).
             task="transcribe",
-            beam_size=1,
+            beam_size=5 if final else 1,
             vad_filter=True,
+            # Slightly relaxed VAD so short French syllables at the end of
+            # sentences don't get clipped.
+            vad_parameters={"min_silence_duration_ms": 400},
             without_timestamps=True,
             condition_on_previous_text=False,
-            initial_prompt=prompt,
+            # Reject segments Whisper itself flags as likely hallucinated
+            # (low no-speech confidence or pathological compression ratio).
+            no_speech_threshold=0.5,
+            compression_ratio_threshold=2.4,
+            log_prob_threshold=-1.0,
         )
         return " ".join(s.text for s in segs).strip()
 
@@ -205,24 +216,21 @@ class VoiceSidecar:
         worker_stop.set()
         worker.join(timeout=2.0)
 
-        # Final pass: if new audio arrived since the worker's last partial,
-        # run one more transcribe. Otherwise reuse the last partial so the
-        # user doesn't wait on a redundant full-audio retranscribe.
+        # Final pass: always run a high-quality beam=5 transcribe on the
+        # full audio buffer. Partials used beam=1 for latency; the final
+        # gets the accurate pass the user actually sees and sends.
         with chunks_lock:
-            final_count = len(chunks)
             audio_final = (
-                np.concatenate(chunks).flatten()
-                if chunks and final_count > worker_state["last_chunk_count"]
-                else None
+                np.concatenate(chunks).flatten() if chunks else None
             )
         if audio_final is not None:
             try:
-                text = self._transcribe(audio_final, lang)
+                text = self._transcribe(audio_final, lang, final=True)
             except Exception as e:
                 emit({"event": "error", "message": f"transcribe failed: {e}"})
                 text = worker_state["last_partial"]
         else:
-            text = worker_state["last_partial"]
+            text = ""
 
         if text:
             emit({"event": "transcript", "text": text, "final": True})
@@ -275,13 +283,10 @@ class VoiceSidecar:
             emit({"event": "error", "message": f"speak failed: {e}"})
 
     def run(self):
-        # Preload whisper so the first turn doesn't pay the model-load cost.
-        # Errors are non-fatal — we still enter the command loop so the user
-        # can retry via set_model.
-        try:
-            self.ensure_model()
-        except Exception as e:
-            emit({"event": "error", "message": f"whisper preload failed: {e}"})
+        # Don't preload — we'd pick the wrong model half the time (default
+        # vs the user's saved pref). The frontend calls set_model right
+        # after prefs load, and _record_and_transcribe falls back to
+        # ensure_model() if the user somehow hits start_listen before set.
         emit({"event": "ready"})
         for line in sys.stdin:
             line = line.strip()
