@@ -1,10 +1,20 @@
 // src/voice-hud/VoiceHud.tsx
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { Mic, Circle, Volume2, Send, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  Circle,
+  Mic,
+  Send,
+  Shield,
+  Volume2,
+  X,
+} from "lucide-react";
 
+import type { PermissionDecision } from "@/lib/tauri-commands";
 import { usePreferencesStore } from "@/stores/preferencesStore";
 import {
   useVoiceStore,
@@ -12,6 +22,13 @@ import {
   type VoicePhase,
 } from "@/stores/voiceStore";
 import styles from "./VoiceHud.module.css";
+
+type PendingPerm = {
+  sessionId: string;
+  requestId: string;
+  toolName: string;
+  toolInput: unknown;
+} | null;
 
 const LABELS: Record<VoicePhase, string> = {
   idle: "En veille",
@@ -48,6 +65,8 @@ export function VoiceHud() {
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const convScrollRef = useRef<HTMLDivElement | null>(null);
+
+  const [pendingPerm, setPendingPerm] = useState<PendingPerm>(null);
 
   useEffect(() => {
     void usePreferencesStore.getState().load();
@@ -118,6 +137,13 @@ export function VoiceHud() {
       },
     );
 
+    const unlistenPerm = listen<PendingPerm>(
+      "voice://permission",
+      ({ payload }) => {
+        setPendingPerm(payload);
+      },
+    );
+
     const unlistenOpened = listen("voice://opened", () => {
       reset();
       userEditedRef.current = false;
@@ -158,10 +184,29 @@ export function VoiceHud() {
       void unlistenEvent.then((fn) => fn());
       void unlistenResponse.then((fn) => fn());
       void unlistenConv.then((fn) => fn());
+      void unlistenPerm.then((fn) => fn());
       void unlistenOpened.then((fn) => fn());
       void unlistenToggle.then((fn) => fn());
     };
   }, [setPhase, setTranscript, setDraft, setResponse, setConversation, reset]);
+
+  const decidePermission = async (decision: PermissionDecision) => {
+    if (!pendingPerm) return;
+    const { sessionId, requestId } = pendingPerm;
+    // Clear locally first so the panel disappears immediately, even
+    // before the main window's store update round-trips.
+    setPendingPerm(null);
+    try {
+      await invoke("resolve_permission", { sessionId, requestId, decision });
+    } catch (e) {
+      console.warn("resolve_permission failed", e);
+    }
+    await emit("voice://permission_resolved", {
+      sessionId,
+      requestId,
+      decision,
+    });
+  };
 
   const handleSend = () => {
     void submitDraft(draftRef.current);
@@ -205,24 +250,76 @@ export function VoiceHud() {
           <X size={12} />
         </button>
       </div>
-      <div className={styles.conversation} ref={convScrollRef}>
-        {conversation.length === 0 ? (
-          <div className={styles.convEmpty}>Aucune conversation active</div>
-        ) : (
-          conversation.map((entry, i) => (
-            <div
-              key={i}
-              className={styles.convLine}
-              data-role={entry.role}
+      {pendingPerm ? (
+        <div className={styles.permissionPanel}>
+          <div className={styles.permissionHeader}>
+            <AlertTriangle size={14} className={styles.permissionWarn} />
+            <span className={styles.permissionTitle}>Permission requise</span>
+          </div>
+          <div className={styles.permissionTool}>
+            <span className={styles.permissionLabel}>Outil</span>
+            <span className={styles.permissionToolName}>
+              {pendingPerm.toolName}
+            </span>
+          </div>
+          <div className={styles.permissionActions}>
+            <button
+              type="button"
+              className={`${styles.permButton} ${styles.permDeny}`}
+              onClick={() => void decidePermission("deny")}
             >
-              <span className={styles.convRole}>
-                {entry.role === "user" ? "Vous" : "Claude"}
+              <X size={12} />
+              <span>Refuser</span>
+            </button>
+            <button
+              type="button"
+              className={`${styles.permButton} ${styles.permSession}`}
+              onClick={() => void decidePermission("allowSession")}
+              title="Autoriser pour toute la session"
+            >
+              <Shield size={12} />
+              <span>Session</span>
+            </button>
+            <button
+              type="button"
+              className={`${styles.permButton} ${styles.permAllow}`}
+              onClick={() => void decidePermission("allow")}
+            >
+              <Check size={12} />
+              <span>Autoriser</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className={styles.conversation} ref={convScrollRef}>
+          {conversation.length === 0 ? (
+            <div className={styles.convEmpty}>Aucune conversation active</div>
+          ) : (
+            conversation.map((entry, i) => (
+              <div
+                key={i}
+                className={styles.convLine}
+                data-role={entry.role}
+              >
+                <span className={styles.convRole}>
+                  {entry.role === "user" ? "Vous" : "Claude"}
+                </span>
+                <span className={styles.convText}>{entry.text}</span>
+              </div>
+            ))
+          )}
+          {phase === "processing" && (
+            <div className={styles.convLine} data-role="assistant">
+              <span className={styles.convRole}>Claude</span>
+              <span className={styles.thinkingBubble}>
+                <span className={styles.thinkingDot} />
+                <span className={styles.thinkingDot} />
+                <span className={styles.thinkingDot} />
               </span>
-              <span className={styles.convText}>{entry.text}</span>
             </div>
-          ))
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       <div className={styles.inputRow}>
         <div className={styles.icon} data-phase={phase}>

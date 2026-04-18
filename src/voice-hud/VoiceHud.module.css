@@ -250,3 +250,147 @@
   0%, 100% { box-shadow: 0 0 0 0 rgba(120, 100, 255, 0.5); }
   50%       { box-shadow: 0 0 0 8px rgba(120, 100, 255, 0); }
 }
+
+/* ── Permission panel ─────────────────────────────────────── */
+
+.permissionPanel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: rgba(255, 180, 60, 0.08);
+  border: 1px solid rgba(255, 180, 60, 0.25);
+  border-radius: 8px;
+}
+
+.permissionHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.permissionWarn {
+  color: rgba(255, 180, 60, 1);
+  flex-shrink: 0;
+}
+
+.permissionTitle {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: rgba(255, 200, 120, 1);
+}
+
+.permissionTool {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.permissionLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(200, 200, 220, 0.5);
+}
+
+.permissionToolName {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 12px;
+  color: rgba(230, 230, 245, 1);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.permissionActions {
+  display: flex;
+  gap: 6px;
+  margin-top: auto;
+}
+
+.permButton {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.permDeny {
+  background: rgba(255, 80, 80, 0.15);
+  border-color: rgba(255, 80, 80, 0.3);
+  color: rgba(255, 180, 180, 1);
+}
+.permDeny:hover {
+  background: rgba(255, 80, 80, 0.25);
+  border-color: rgba(255, 80, 80, 0.5);
+}
+
+.permSession {
+  background: rgba(255, 180, 60, 0.12);
+  border-color: rgba(255, 180, 60, 0.3);
+  color: rgba(255, 200, 120, 1);
+}
+.permSession:hover {
+  background: rgba(255, 180, 60, 0.2);
+  border-color: rgba(255, 180, 60, 0.5);
+}
+
+.permAllow {
+  background: rgba(60, 220, 140, 0.15);
+  border-color: rgba(60, 220, 140, 0.3);
+  color: rgba(160, 240, 200, 1);
+}
+.permAllow:hover {
+  background: rgba(60, 220, 140, 0.25);
+  border-color: rgba(60, 220, 140, 0.5);
+}
+
+/* ── Thinking bubble ─────────────────────────────────────── */
+
+.thinkingBubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: rgba(60, 220, 140, 0.12);
+  border: 1px solid rgba(60, 220, 140, 0.25);
+  border-radius: 10px;
+}
+
+.thinkingDot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(140, 240, 200, 0.9);
+  animation: thinkingPulse 1.2s ease-in-out infinite;
+}
+.thinkingDot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.thinkingDot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes thinkingPulse {
+  0%, 80%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
