@@ -48,10 +48,10 @@ async function boot() {
     console.log("[voice] hud window:", hud);
     if (!hud) { console.error("[voice] voice-hud window not found"); return; }
 
-    const isListening = await invoke<boolean>("voice_is_listening");
+    const isVisible = await hud.isVisible();
 
-    if (isListening) {
-      await invoke("voice_stop_listen");
+    if (isVisible) {
+      await invoke("voice_stop_listen").catch(() => {});
       await hud.hide();
     } else {
       // Find DP-1, fallback to first monitor
