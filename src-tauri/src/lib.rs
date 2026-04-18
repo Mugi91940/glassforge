@@ -51,6 +51,12 @@ pub fn run() {
             // Spawn voice sidecar
             {
                 use tauri::Manager;
+                // In dev mode, resource_dir points to target/debug — use source path instead.
+                #[cfg(debug_assertions)]
+                let sidecar_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("sidecar")
+                    .join("voice_sidecar.py");
+                #[cfg(not(debug_assertions))]
                 let sidecar_path = app.path()
                     .resource_dir()
                     .unwrap_or_default()
