@@ -67,12 +67,12 @@ pub fn run() {
                 }
             }
 
-            // Register Super+V global shortcut
+            // Register Ctrl+Alt+O global shortcut
             {
                 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, ShortcutState};
                 let shortcut = tauri_plugin_global_shortcut::Shortcut::new(
-                    Some(Modifiers::SUPER),
-                    Code::KeyV,
+                    Some(Modifiers::CONTROL | Modifiers::ALT),
+                    Code::KeyO,
                 );
                 app.handle().global_shortcut().on_shortcut(shortcut, |app, _shortcut, event| {
                     if event.state() == ShortcutState::Pressed {

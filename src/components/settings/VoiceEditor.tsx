@@ -32,11 +32,11 @@ export function VoiceEditor() {
         <div className={styles.rowLabel}>
           Raccourci
           <span className={styles.hint}>
-            Appuyez sur Super+V pour activer/désactiver la commande vocale.
+            Appuyez sur Ctrl+Alt+O pour activer/désactiver la commande vocale.
           </span>
         </div>
         <div className={styles.rowControl}>
-          <kbd style={{ fontSize: 11, opacity: 0.7 }}>Super + V</kbd>
+          <kbd style={{ fontSize: 11, opacity: 0.7 }}>Ctrl+Alt+O</kbd>
         </div>
       </div>
 

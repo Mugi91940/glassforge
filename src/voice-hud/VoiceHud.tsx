@@ -89,7 +89,7 @@ export function VoiceHud() {
         )}
       </div>
 
-      <div className={styles.shortcut}>Super+V</div>
+      <div className={styles.shortcut}>Ctrl+Alt+O</div>
     </div>
   );
 }
