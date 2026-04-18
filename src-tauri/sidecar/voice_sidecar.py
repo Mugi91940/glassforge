@@ -115,14 +115,7 @@ class VoiceSidecar:
                     if partial:
                         emit({"event": "transcript", "text": partial, "final": False})
 
-                # Auto-stop on sustained silence once we've captured some speech.
-                # `chunks` having voice-level RMS ensures we don't bail before the
-                # user has even started talking.
-                if (
-                    silence_frames >= silence_limit
-                    and len(chunks) > silence_limit
-                ):
-                    self.listening = False
+                if silence_frames >= silence_limit and not self.listening:
                     break
 
         if chunks:

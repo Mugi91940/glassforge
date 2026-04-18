@@ -37,7 +37,12 @@ async function boot() {
     window.dispatchEvent(new CustomEvent("voice:send_message", { detail: payload.text }));
   });
 
-  // Handle voice toggle from main window (HUD is hidden by default and can't receive events)
+  // Voice toggle states:
+  //   hidden                 → open HUD + start listening
+  //   visible + listening    → stop listening (commit transcript), keep HUD open
+  //   visible + not listening → hide HUD (cancel / dismiss)
+  // This lets the user finalize a long dictation with a second press without
+  // losing the HUD during Claude's reply.
   void listen("voice://toggle", async () => {
     const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
     const { invoke } = await import("@tauri-apps/api/core");
@@ -48,11 +53,9 @@ async function boot() {
     if (!hud) return;
 
     const isVisible = await hud.isVisible();
+    const isListening = await invoke<boolean>("voice_is_listening").catch(() => false);
 
-    if (isVisible) {
-      await invoke("voice_stop_listen").catch(() => {});
-      await hud.hide();
-    } else {
+    if (!isVisible) {
       const monitors = await availableMonitors();
       const target = monitors.find((m) => m.name === "DP-1") ?? monitors[0];
       if (target) {
@@ -63,6 +66,10 @@ async function boot() {
       await hud.setFocus();
       const lang = usePreferencesStore.getState().voiceLang;
       await invoke("voice_start_listen", { lang });
+    } else if (isListening) {
+      await invoke("voice_stop_listen").catch(() => {});
+    } else {
+      await hud.hide();
     }
   });
 }
