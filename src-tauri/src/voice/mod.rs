@@ -21,10 +21,18 @@ pub enum SidecarEvent {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "cmd", rename_all = "snake_case")]
 pub enum SidecarCmd {
-    StartListen { lang: String },
+    StartListen {
+        lang: String,
+    },
     StopListen,
-    Speak { text: String, lang: String },
-    SetModel { model: String },
+    Speak {
+        text: String,
+        lang: String,
+        volume: f32,
+    },
+    SetModel {
+        model: String,
+    },
     Shutdown,
 }
 
@@ -133,10 +141,12 @@ mod tests {
         let cmd = SidecarCmd::Speak {
             text: "bonjour".to_string(),
             lang: "fr".to_string(),
+            volume: 0.75,
         };
         let json = serde_json::to_string(&cmd).unwrap();
         assert!(json.contains("\"cmd\":\"speak\""));
         assert!(json.contains("\"text\":\"bonjour\""));
+        assert!(json.contains("\"volume\":0.75"));
     }
 
     #[test]

@@ -104,7 +104,7 @@ export function useVoiceResponse(): void {
             const lastText = findLastAssistantText(entries);
             if (!lastText) return;
 
-            const { voiceAutoSpeak, voiceLang } =
+            const { voiceAutoSpeak, voiceLang, voiceVolume } =
               usePreferencesStore.getState();
             if (!voiceAutoSpeak) return;
 
@@ -112,9 +112,11 @@ export function useVoiceResponse(): void {
             if (!spoken) return;
 
             void emit("voice://response", { text: spoken });
-            invoke("voice_speak", { text: spoken, lang: voiceLang }).catch(
-              (err) => log.warn("voice_speak failed", err),
-            );
+            invoke("voice_speak", {
+              text: spoken,
+              lang: voiceLang,
+              volume: voiceVolume,
+            }).catch((err) => log.warn("voice_speak failed", err));
           },
         );
         if (cancelled) {

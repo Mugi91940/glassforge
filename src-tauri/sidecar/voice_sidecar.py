@@ -124,7 +124,7 @@ class VoiceSidecar:
             text = " ".join(s.text for s in segs).strip()
             emit({"event": "transcript", "text": text, "final": True})
 
-    def speak(self, text: str, lang: str = "fr"):
+    def speak(self, text: str, lang: str = "fr", volume: float = 1.0):
         try:
             if not text.strip():
                 emit({"event": "speak_done"})
@@ -164,6 +164,8 @@ class VoiceSidecar:
                 pass
 
             audio = np.frombuffer(proc.stdout, dtype=np.int16).astype(np.float32) / 32768.0
+            gain = max(0.0, min(1.0, float(volume)))
+            audio = audio * gain
             sd.play(audio, samplerate=sample_rate, blocking=True)
             emit({"event": "speak_done"})
         except Exception as e:
@@ -188,8 +190,9 @@ class VoiceSidecar:
             elif name == "speak":
                 text = cmd.get("text", "")
                 lang = cmd.get("lang", "fr")
+                volume = float(cmd.get("volume", 1.0))
                 threading.Thread(
-                    target=self.speak, args=(text, lang), daemon=True
+                    target=self.speak, args=(text, lang, volume), daemon=True
                 ).start()
             elif name == "set_model":
                 self.set_model(cmd.get("model", "base"))

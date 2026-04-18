@@ -28,6 +28,8 @@ export function VoiceEditor() {
   const setVoiceAutoSpeak = usePreferencesStore((s) => s.setVoiceAutoSpeak);
   const voiceHudDuration = usePreferencesStore((s) => s.voiceHudDuration);
   const setVoiceHudDuration = usePreferencesStore((s) => s.setVoiceHudDuration);
+  const voiceVolume = usePreferencesStore((s) => s.voiceVolume);
+  const setVoiceVolume = usePreferencesStore((s) => s.setVoiceVolume);
 
   return (
     <section className={styles.section}>
@@ -95,6 +97,30 @@ export function VoiceEditor() {
             onChange={(e) => void setVoiceAutoSpeak(e.target.checked)}
             aria-label="Réponse vocale auto"
           />
+        </div>
+      </div>
+
+      <div className={styles.row}>
+        <div className={styles.rowLabel}>
+          Volume
+          <span className={styles.hint}>
+            Volume de la voix de synthèse (piper).
+          </span>
+        </div>
+        <div className={styles.rowControl}>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={voiceVolume}
+            onChange={(e) => void setVoiceVolume(Number(e.target.value))}
+            aria-label="Volume"
+            style={{ width: 80 }}
+          />
+          <span style={{ fontSize: 11, opacity: 0.6, marginLeft: 6 }}>
+            {Math.round(voiceVolume * 100)}%
+          </span>
         </div>
       </div>
 

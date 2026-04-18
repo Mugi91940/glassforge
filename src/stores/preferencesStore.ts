@@ -36,6 +36,7 @@ type Persisted = {
   voiceLang: "fr" | "en";
   voiceAutoSpeak: boolean;
   voiceHudDuration: number;
+  voiceVolume: number;
 };
 
 type PreferencesState = {
@@ -47,6 +48,7 @@ type PreferencesState = {
   voiceLang: "fr" | "en";
   voiceAutoSpeak: boolean;
   voiceHudDuration: number;
+  voiceVolume: number;
   loaded: boolean;
 
   load: () => Promise<void>;
@@ -58,6 +60,7 @@ type PreferencesState = {
   setVoiceLang: (l: "fr" | "en") => Promise<void>;
   setVoiceAutoSpeak: (v: boolean) => Promise<void>;
   setVoiceHudDuration: (s: number) => Promise<void>;
+  setVoiceVolume: (v: number) => Promise<void>;
 };
 
 const DEFAULTS: Persisted = {
@@ -69,6 +72,7 @@ const DEFAULTS: Persisted = {
   voiceLang: "fr",
   voiceAutoSpeak: true,
   voiceHudDuration: 4,
+  voiceVolume: 1,
 };
 
 function isValidMode(v: unknown): v is PermissionMode {
@@ -108,6 +112,7 @@ function snapshot(state: PreferencesState): Persisted {
     voiceLang: state.voiceLang,
     voiceAutoSpeak: state.voiceAutoSpeak,
     voiceHudDuration: state.voiceHudDuration,
+    voiceVolume: state.voiceVolume,
   };
 }
 
@@ -120,6 +125,7 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
   voiceLang: DEFAULTS.voiceLang,
   voiceAutoSpeak: DEFAULTS.voiceAutoSpeak,
   voiceHudDuration: DEFAULTS.voiceHudDuration,
+  voiceVolume: DEFAULTS.voiceVolume,
   loaded: false,
 
   load: async () => {
@@ -154,6 +160,9 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
       const voiceHudDuration = raw && typeof raw.voiceHudDuration === "number"
         ? raw.voiceHudDuration
         : DEFAULTS.voiceHudDuration;
+      const voiceVolume = raw && typeof raw.voiceVolume === "number"
+        ? Math.max(0, Math.min(1, raw.voiceVolume))
+        : DEFAULTS.voiceVolume;
       set({
         permissionMode: mode,
         skipDeleteWarning: skip,
@@ -163,6 +172,7 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
         voiceLang,
         voiceAutoSpeak,
         voiceHudDuration,
+        voiceVolume,
         loaded: true,
       });
     } catch (e) {
@@ -205,6 +215,11 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
   },
   setVoiceHudDuration: async (voiceHudDuration) => {
     set({ voiceHudDuration });
+    await persist(snapshot(get()));
+  },
+  setVoiceVolume: async (voiceVolume) => {
+    const clamped = Math.max(0, Math.min(1, voiceVolume));
+    set({ voiceVolume: clamped });
     await persist(snapshot(get()));
   },
 }));

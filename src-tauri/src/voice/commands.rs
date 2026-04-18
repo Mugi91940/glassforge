@@ -37,11 +37,20 @@ pub fn voice_stop_listen(state: VoiceStateRef<'_>) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn voice_speak(state: VoiceStateRef<'_>, text: String, lang: String) -> Result<(), String> {
+pub fn voice_speak(
+    state: VoiceStateRef<'_>,
+    text: String,
+    lang: String,
+    volume: Option<f32>,
+) -> Result<(), String> {
     let guard = state.sidecar.lock().unwrap();
     if let Some(sc) = guard.as_ref() {
-        sc.send(&SidecarCmd::Speak { text, lang })
-            .map_err(|e| e.to_string())
+        sc.send(&SidecarCmd::Speak {
+            text,
+            lang,
+            volume: volume.unwrap_or(1.0).clamp(0.0, 1.0),
+        })
+        .map_err(|e| e.to_string())
     } else {
         Err("voice sidecar not running".into())
     }

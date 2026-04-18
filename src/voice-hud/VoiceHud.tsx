@@ -98,7 +98,8 @@ export function VoiceHud() {
 
 async function handleFinalTranscript(text: string) {
   const { setPhase, setResponse } = useVoiceStore.getState();
-  const { voiceLang, voiceAutoSpeak } = usePreferencesStore.getState();
+  const { voiceLang, voiceAutoSpeak, voiceVolume } =
+    usePreferencesStore.getState();
 
   const command = await invoke<string | null>("voice_detect_command", { text });
   const { emit } = await import("@tauri-apps/api/event");
@@ -109,7 +110,11 @@ async function handleFinalTranscript(text: string) {
     setResponse(label);
     setPhase("speaking");
     if (voiceAutoSpeak) {
-      await invoke("voice_speak", { text: label, lang: voiceLang });
+      await invoke("voice_speak", {
+        text: label,
+        lang: voiceLang,
+        volume: voiceVolume,
+      });
     }
   } else {
     // Message dictated to Claude: the response TTS is driven by
