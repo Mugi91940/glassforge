@@ -21,6 +21,7 @@ Events (stdout, one JSON per line):
 import json
 import sys
 import threading
+import time
 import queue
 import subprocess
 import glob
@@ -33,6 +34,14 @@ CHANNELS = 1
 BLOCK_SIZE = 1024
 SILENCE_THRESHOLD = 0.01
 SILENCE_SECONDS = 1.5
+# Partial transcript cadence: every 0.8s of captured audio. The
+# transcription thread re-runs Whisper on the growing buffer at this
+# cadence and emits the latest text.
+PARTIAL_INTERVAL_S = 0.8
+# Biases Whisper toward conversational French and reduces hallucinated
+# boilerplate on very short utterances.
+INITIAL_PROMPT_FR = "Bonjour, je vais dicter un message."
+INITIAL_PROMPT_EN = "Hello, I'm going to dictate a message."
 
 
 def emit(event: dict):
@@ -64,6 +73,7 @@ class VoiceSidecar:
         # Speed-tuned: greedy decoding, VAD pre-filter, no timestamps, no
         # carry-over context (each call stands alone since we re-transcribe
         # the growing audio buffer on every partial).
+        prompt = INITIAL_PROMPT_EN if lang == "en" else INITIAL_PROMPT_FR
         segs, _ = self.model.transcribe(
             audio,
             language=lang,
@@ -71,6 +81,7 @@ class VoiceSidecar:
             vad_filter=True,
             without_timestamps=True,
             condition_on_previous_text=False,
+            initial_prompt=prompt,
         )
         return " ".join(s.text for s in segs).strip()
 
@@ -92,17 +103,42 @@ class VoiceSidecar:
 
     def _record_and_transcribe(self, audio_queue: queue.Queue, lang: str = "fr"):
         self.ensure_model()
-        chunks = []
+        chunks: list = []
+        chunks_lock = threading.Lock()
+        # Shared state mutated by the transcription worker and read by this
+        # thread after the worker stops (so no lock needed on read-after-join).
+        worker_state = {"last_partial": "", "last_chunk_count": 0}
+        worker_stop = threading.Event()
+
+        def transcription_worker():
+            while not worker_stop.is_set():
+                time.sleep(0.1)
+                with chunks_lock:
+                    count = len(chunks)
+                    if count == 0:
+                        continue
+                    if count - worker_state["last_chunk_count"] < int(
+                        PARTIAL_INTERVAL_S * SAMPLE_RATE / BLOCK_SIZE
+                    ):
+                        continue
+                    audio = np.concatenate(chunks).flatten()
+                try:
+                    partial = self._transcribe(audio, lang)
+                except Exception as e:
+                    emit({"event": "error", "message": f"transcribe failed: {e}"})
+                    continue
+                worker_state["last_chunk_count"] = count
+                if partial and partial != worker_state["last_partial"]:
+                    worker_state["last_partial"] = partial
+                    emit({"event": "transcript", "text": partial, "final": False})
+
+        worker = threading.Thread(target=transcription_worker, daemon=True)
+        worker.start()
+
         silence_frames = 0
         silence_limit = int(SILENCE_SECONDS * SAMPLE_RATE / BLOCK_SIZE)
-        # Stream a partial transcript every ~1.5s of audio so the user
-        # sees what's being heard. Saves the last partial so the final
-        # transcript can be emitted instantly when stop_listen fires.
-        partial_every = int(1.5 * SAMPLE_RATE / BLOCK_SIZE)
-        last_partial = ""
-        last_partial_chunk_count = 0
 
-        def audio_callback(indata, frames, time, status):
+        def audio_callback(indata, frames, time_info, status):
             if self.listening:
                 audio_queue.put(indata.copy())
 
@@ -119,33 +155,39 @@ class VoiceSidecar:
                 except queue.Empty:
                     continue
 
-                chunks.append(chunk)
-                rms = float(np.sqrt(np.mean(chunk ** 2)))
+                with chunks_lock:
+                    chunks.append(chunk)
 
+                rms = float(np.sqrt(np.mean(chunk ** 2)))
                 if rms < SILENCE_THRESHOLD:
                     silence_frames += 1
                 else:
                     silence_frames = 0
 
-                if len(chunks) - last_partial_chunk_count >= partial_every:
-                    audio = np.concatenate(chunks).flatten()
-                    partial = self._transcribe(audio, lang)
-                    if partial:
-                        last_partial = partial
-                        emit({"event": "transcript", "text": partial, "final": False})
-                    last_partial_chunk_count = len(chunks)
-
                 if silence_frames >= silence_limit and not self.listening:
                     break
 
-        # On stop: if new audio came in since the last partial, do one more
-        # transcribe pass to catch it. Otherwise reuse the stored partial so
-        # the user doesn't wait on a redundant full-audio retranscribe.
-        if chunks and len(chunks) > last_partial_chunk_count:
-            audio = np.concatenate(chunks).flatten()
-            text = self._transcribe(audio, lang)
+        worker_stop.set()
+        worker.join(timeout=2.0)
+
+        # Final pass: if new audio arrived since the worker's last partial,
+        # run one more transcribe. Otherwise reuse the last partial so the
+        # user doesn't wait on a redundant full-audio retranscribe.
+        with chunks_lock:
+            final_count = len(chunks)
+            audio_final = (
+                np.concatenate(chunks).flatten()
+                if chunks and final_count > worker_state["last_chunk_count"]
+                else None
+            )
+        if audio_final is not None:
+            try:
+                text = self._transcribe(audio_final, lang)
+            except Exception as e:
+                emit({"event": "error", "message": f"transcribe failed: {e}"})
+                text = worker_state["last_partial"]
         else:
-            text = last_partial
+            text = worker_state["last_partial"]
 
         if text:
             emit({"event": "transcript", "text": text, "final": True})
