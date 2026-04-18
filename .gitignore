@@ -48,3 +48,6 @@ dist/
 
 # ── Brainstorm / session cache ───────────────────────────────
 .superpowers/
+
+# ── Python venv (voice sidecar) ──────────────────────────────
+src-tauri/sidecar/.venv/

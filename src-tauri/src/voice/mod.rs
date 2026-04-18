@@ -35,7 +35,15 @@ pub struct VoiceSidecar {
 
 impl VoiceSidecar {
     pub fn spawn(app: AppHandle, sidecar_path: &str) -> anyhow::Result<Self> {
-        let mut child = std::process::Command::new("python3")
+        // Prefer venv python next to the sidecar script
+        let venv_python = std::path::Path::new(sidecar_path)
+            .parent()
+            .map(|d| d.join(".venv/bin/python3"))
+            .filter(|p| p.exists())
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "python3".to_string());
+
+        let mut child = std::process::Command::new(&venv_python)
             .arg(sidecar_path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
