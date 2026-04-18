@@ -37,12 +37,10 @@ async function boot() {
     window.dispatchEvent(new CustomEvent("voice:send_message", { detail: payload.text }));
   });
 
-  // Voice toggle states:
-  //   hidden                 → open HUD + start listening
-  //   visible + listening    → stop listening (commit transcript), keep HUD open
-  //   visible + not listening → hide HUD (cancel / dismiss)
-  // This lets the user finalize a long dictation with a second press without
-  // losing the HUD during Claude's reply.
+  // Toggle ownership is split between main.tsx and the HUD:
+  //   - main.tsx handles the "hidden → open + start listening" case.
+  //   - VoiceHud handles all transitions while visible (stop listening,
+  //     send the draft, dismiss), because only the HUD knows its phase.
   void listen("voice://toggle", async () => {
     const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
     const { invoke } = await import("@tauri-apps/api/core");
@@ -51,26 +49,26 @@ async function boot() {
 
     const hud = await WebviewWindow.getByLabel("voice-hud");
     if (!hud) return;
+    if (await hud.isVisible()) return;
 
-    const isVisible = await hud.isVisible();
-    const isListening = await invoke<boolean>("voice_is_listening").catch(() => false);
-
-    if (!isVisible) {
-      const monitors = await availableMonitors();
-      const target = monitors.find((m) => m.name === "DP-1") ?? monitors[0];
-      if (target) {
-        const x = target.position.x + Math.floor((target.size.width - 440) / 2);
-        await hud.setPosition({ type: "Physical", x, y: target.position.y + 20 } as never);
-      }
-      await hud.show();
-      await hud.setFocus();
-      const lang = usePreferencesStore.getState().voiceLang;
-      await invoke("voice_start_listen", { lang });
-    } else if (isListening) {
-      await invoke("voice_stop_listen").catch(() => {});
-    } else {
-      await hud.hide();
+    const monitors = await availableMonitors();
+    const target = monitors.find((m) => m.name === "DP-1") ?? monitors[0];
+    if (target) {
+      const x = target.position.x + Math.floor((target.size.width - 560) / 2);
+      await hud.setPosition({
+        type: "Physical",
+        x,
+        y: target.position.y + 20,
+      } as never);
     }
+    await hud.show();
+    await hud.setFocus();
+    const lang = usePreferencesStore.getState().voiceLang;
+    await invoke("voice_start_listen", { lang });
+    // Signal the HUD to reset state and flip to "listening" immediately,
+    // without waiting for the first partial transcript.
+    const { emit } = await import("@tauri-apps/api/event");
+    void emit("voice://opened");
   });
 }
 

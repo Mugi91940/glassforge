@@ -6,6 +6,7 @@ import { TopBar } from "@/components/layout/TopBar";
 import { SettingsPanel } from "@/components/settings/SettingsPanel";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useSessionEvents } from "@/hooks/useSessionEvents";
+import { useVoiceConversation } from "@/hooks/useVoiceConversation";
 import { useVoiceResponse } from "@/hooks/useVoiceResponse";
 import * as log from "@/lib/log";
 import { listSessions } from "@/lib/tauri-commands";
@@ -34,6 +35,7 @@ function App() {
 
   useSessionEvents();
   useVoiceResponse();
+  useVoiceConversation();
   useKeyboardShortcuts({ settingsOpen, setSettingsOpen });
 
   return (
