@@ -100,10 +100,18 @@ class VoiceSidecar:
         # Speed-tuned: greedy decoding, VAD pre-filter, no timestamps, no
         # carry-over context (each call stands alone since we re-transcribe
         # the growing audio buffer on every partial).
-        prompt = INITIAL_PROMPT_EN if lang == "en" else INITIAL_PROMPT_FR
+        # Normalize to a supported language code — defensive in case the
+        # frontend ever forwards something unexpected (e.g. an empty string
+        # which lets Whisper auto-detect and sometimes translate).
+        lang_code = lang if lang in ("fr", "en") else "fr"
+        prompt = INITIAL_PROMPT_EN if lang_code == "en" else INITIAL_PROMPT_FR
         segs, _ = self.model.transcribe(
             audio,
-            language=lang,
+            language=lang_code,
+            # Force transcription (keep the source language). Without this,
+            # Whisper can silently translate French input into English on
+            # smaller models (tiny/base), which is what the user was seeing.
+            task="transcribe",
             beam_size=1,
             vad_filter=True,
             without_timestamps=True,
