@@ -42,7 +42,7 @@ async function boot() {
     console.log("[voice] toggle event received");
     const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
     const { invoke } = await import("@tauri-apps/api/core");
-    const { currentMonitor } = await import("@tauri-apps/api/window");
+    const { availableMonitors } = await import("@tauri-apps/api/window");
 
     const hud = await WebviewWindow.getByLabel("voice-hud");
     console.log("[voice] hud window:", hud);
@@ -54,11 +54,12 @@ async function boot() {
       await invoke("voice_stop_listen");
       await hud.hide();
     } else {
-      // Position top-center
-      const monitor = await currentMonitor();
-      if (monitor) {
-        const x = Math.floor((monitor.size.width - 440) / 2);
-        await hud.setPosition({ type: "Physical", x, y: 20 } as never);
+      // Find DP-1, fallback to first monitor
+      const monitors = await availableMonitors();
+      const target = monitors.find((m) => m.name === "DP-1") ?? monitors[0];
+      if (target) {
+        const x = target.position.x + Math.floor((target.size.width - 440) / 2);
+        await hud.setPosition({ type: "Physical", x, y: target.position.y + 20 } as never);
       }
       await hud.show();
       await hud.setFocus();
