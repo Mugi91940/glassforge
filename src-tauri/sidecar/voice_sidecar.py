@@ -193,6 +193,14 @@ class VoiceSidecar:
     def start_listen(self, lang: str = "fr"):
         if self.listening:
             return
+        # Abort any in-flight TTS playback so the mic stream can open
+        # immediately. Without this, if the user hits the shortcut while
+        # piper is still speaking the last reply, opening an InputStream
+        # can stall for hundreds of ms on half-duplex audio devices.
+        try:
+            sd.stop()
+        except Exception:
+            pass
         self.listening = True
         audio_queue = queue.Queue()
         self.audio_queue = audio_queue
@@ -275,12 +283,18 @@ class VoiceSidecar:
         worker_stop.set()
         worker.join(timeout=2.0)
 
-        # Final pass: always run a high-quality beam=5 transcribe on the
-        # full audio buffer. Partials used beam=1 for latency; the final
-        # gets the accurate pass the user actually sees and sends.
+        # Final pass: only re-transcribe if new audio arrived since the
+        # last partial. Since partials now use the same beam=5 as the
+        # final, the last partial IS a high-quality transcript — there's
+        # no point running Whisper again on the same bytes and tying up
+        # the model while the user may already be starting a new turn.
         with chunks_lock:
+            final_count = len(chunks)
+            needs_retranscribe = final_count > worker_state["last_chunk_count"]
             audio_final = (
-                np.concatenate(chunks).flatten() if chunks else None
+                np.concatenate(chunks).flatten()
+                if chunks and needs_retranscribe
+                else None
             )
         if audio_final is not None:
             try:
@@ -289,7 +303,7 @@ class VoiceSidecar:
                 emit({"event": "error", "message": f"transcribe failed: {e}"})
                 text = worker_state["last_partial"]
         else:
-            text = ""
+            text = worker_state["last_partial"]
 
         if text:
             emit({"event": "transcript", "text": text, "final": True})
