@@ -8,44 +8,44 @@ import type { ChatEntry, ClaudeEvent } from "@/lib/types";
 import { usePreferencesStore } from "@/stores/preferencesStore";
 import { useSessionStore } from "@/stores/sessionStore";
 
-const MAX_TTS_CHARS = 200;
-const MIN_FIRST_SENTENCE = 80;
-
-// Extract only the gist of Claude's reply: strip markdown, keep the first
-// paragraph, then the first sentence (or two if the first is very short).
-// This gives a short spoken summary instead of reading a whole response.
+// Extract the "important info" from Claude's reply for TTS.
+// No character limit — but we stop at structural boundaries that mean
+// "the prose ended and the details begin": lists, code blocks, second
+// paragraphs. That way piper reads the full intro/answer sentence(s)
+// without trying to speak enumerated bullets or code.
 function extractGist(raw: string): string {
-  let clean = raw.replace(/```[\s\S]*?```/g, " ");
+  // Strip code blocks and inline code — unreadable by TTS.
+  let clean = raw.replace(/```[\s\S]*?```/g, "\n\n");
   clean = clean.replace(/`[^`]+`/g, "");
+  // Strip markdown link syntax (keep the visible text).
   clean = clean.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+  // Strip headings, bold, italic, stray asterisks.
   clean = clean.replace(/#{1,6}\s+/g, "");
   clean = clean.replace(/\*\*([^*]+)\*\*/g, "$1");
   clean = clean.replace(/\*([^*]+)\*/g, "$1");
-  // Strip any remaining asterisks (unclosed bold, bullet markers) and
-  // list bullets at line starts so piper doesn't pronounce them.
-  clean = clean.replace(/^[\s]*[-*•]\s+/gm, "");
   clean = clean.replace(/\*/g, "");
 
-  const firstPara = clean.split(/\n\n+/)[0].replace(/\s+/g, " ").trim();
-  if (!firstPara) return "";
-
-  const firstSentence = firstPara.match(/^[^.!?]+[.!?]/);
-  if (!firstSentence) {
-    return firstPara.length > MAX_TTS_CHARS
-      ? firstPara.slice(0, MAX_TTS_CHARS) + "..."
-      : firstPara;
+  // Take everything up to the first of:
+  //   - a blank line (paragraph break)
+  //   - a list marker at start of line (-, *, •, 1., 2., etc.)
+  // This is where Claude's prose tends to hand off to structure.
+  const lines = clean.split("\n");
+  const kept: string[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      // Blank line after we've collected content ends the paragraph.
+      if (kept.length > 0) break;
+      continue;
+    }
+    if (/^(?:[-*•]|\d+[.)])\s+/.test(trimmed)) {
+      // A list item — stop before it.
+      break;
+    }
+    kept.push(trimmed);
   }
 
-  let result = firstSentence[0].trim();
-  if (result.length < MIN_FIRST_SENTENCE) {
-    const rest = firstPara.slice(firstSentence[0].length).trim();
-    const next = rest.match(/^[^.!?]+[.!?]/);
-    if (next) result += " " + next[0].trim();
-  }
-
-  return result.length > MAX_TTS_CHARS
-    ? result.slice(0, MAX_TTS_CHARS) + "..."
-    : result;
+  return kept.join(" ").replace(/\s+/g, " ").trim();
 }
 
 function findLastAssistantText(entries: ChatEntry[]): string | null {
