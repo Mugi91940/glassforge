@@ -59,7 +59,13 @@ function findLastAssistantText(entries: ChatEntry[]): string | null {
 // Orchestrates voice-dictated messages: sends to Claude, waits for the
 // turn to complete, then TTSes the assistant's reply back to the HUD.
 export function useVoiceResponse(): void {
-  const pendingRef = useRef<string | null>(null);
+  // Per-session counter. Incremented on each voice send, decremented on
+  // each matching `result` event. A counter (not a flag) is required so
+  // rapid-fire voice sends (send msg 2 before msg 1's result arrives)
+  // don't lose the TTS for later turns: the simple flag was being
+  // cleared by msg 1's result and then "pending" looked false when
+  // msg 2's result landed.
+  const pendingCountRef = useRef<Record<string, number>>({});
   const order = useSessionStore((s) => s.order);
   const activeId = useSessionStore((s) => s.activeId);
 
@@ -76,10 +82,14 @@ export function useVoiceResponse(): void {
         log.warn("voice send_message ignored: no active session");
         return;
       }
-      pendingRef.current = sid;
+      pendingCountRef.current[sid] =
+        (pendingCountRef.current[sid] ?? 0) + 1;
       sendMessage(sid, text).catch((err) => {
         log.error("voice send_message failed", String(err));
-        pendingRef.current = null;
+        pendingCountRef.current[sid] = Math.max(
+          0,
+          (pendingCountRef.current[sid] ?? 0) - 1,
+        );
       });
     }
     window.addEventListener("voice:send_message", voiceSendHandler);
@@ -97,8 +107,9 @@ export function useVoiceResponse(): void {
           `session://${sid}/event`,
           ({ payload }) => {
             if (payload.type !== "result") return;
-            if (pendingRef.current !== sid) return;
-            pendingRef.current = null;
+            const count = pendingCountRef.current[sid] ?? 0;
+            if (count <= 0) return;
+            pendingCountRef.current[sid] = count - 1;
 
             const entries = useSessionStore.getState().entries[sid] ?? [];
             const lastText = findLastAssistantText(entries);
