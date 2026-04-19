@@ -89,6 +89,18 @@ export function VoiceHud() {
     }
   }, [phase]);
 
+  // Auto-close the HUD after 10 seconds of idle inactivity. Any phase
+  // transition (user presses Ctrl+Alt+O to start a new turn, Claude is
+  // working, TTS is playing…) cancels the timer; only sustained idle
+  // triggers the close.
+  useEffect(() => {
+    if (phase !== "idle") return;
+    const id = window.setTimeout(() => {
+      void closeHud();
+    }, 10_000);
+    return () => window.clearTimeout(id);
+  }, [phase]);
+
   useEffect(() => {
     const unlistenEvent = listen<{
       event: string;
