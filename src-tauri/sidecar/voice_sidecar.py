@@ -38,6 +38,25 @@ SILENCE_SECONDS = 1.5
 # transcription thread re-runs Whisper on the growing buffer at this
 # cadence and emits the latest text.
 PARTIAL_INTERVAL_S = 0.8
+# Minimum RMS below which we consider the buffer to be effectively
+# silent and skip the transcribe call entirely. Whisper is famous for
+# hallucinating generic YouTube-training phrases like "This is a test."
+# or "Thanks for watching." on near-silent input.
+MIN_RMS_FOR_TRANSCRIBE = 0.005
+# Known Whisper hallucinations. If the full transcript matches one of
+# these (case-insensitive, punctuation-agnostic), drop it.
+HALLUCINATIONS = {
+    "this is a test",
+    "thank you",
+    "thanks for watching",
+    "thanks for watching!",
+    "please subscribe",
+    "subtitles by the amara.org community",
+    "merci d'avoir regardé cette vidéo",
+    "merci d'avoir regardé",
+    "sous-titres réalisés par la communauté d'amara.org",
+    "sous-titres réalisés par l'amara.org",
+}
 
 
 def emit(event: dict):
@@ -118,28 +137,39 @@ class VoiceSidecar:
         was drifting into English on borderline French segments.
         """
         lang_code = lang if lang in ("fr", "en") else "fr"
+
+        # Audio level gate: Whisper hallucinates generic English phrases
+        # on near-silent input. If the buffer's energy is below the
+        # threshold, don't even call transcribe — return empty.
+        if audio.size == 0:
+            return ""
+        peak = float(np.max(np.abs(audio)))
+        rms = float(np.sqrt(np.mean(audio ** 2)))
+        if rms < MIN_RMS_FOR_TRANSCRIBE:
+            if final:
+                log(
+                    f"skipping transcribe: audio too quiet "
+                    f"rms={rms:.4f} peak={peak:.4f}"
+                )
+            return ""
+
+        # Only normalize when the signal has real content. Amplifying a
+        # peak of 0.02 up to 0.9 would just be boosting noise into
+        # Whisper's "hallucinate a YouTube phrase" zone.
+        if peak > 0.05:
+            audio = (audio / peak) * 0.9
+
         if final:
             log(
                 f"final transcribe lang={lang_code!r} "
-                f"model={self.model_name}"
+                f"model={self.model_name} rms={rms:.3f} peak={peak:.3f}"
             )
-
-        # Normalize audio so Whisper sees a consistent amplitude regardless
-        # of mic gain. Peak-normalize to ~0.9 so we don't clip.
-        peak = float(np.max(np.abs(audio))) if audio.size else 0.0
-        if peak > 1e-4:
-            audio = (audio / peak) * 0.9
 
         segs, _ = self.model.transcribe(
             audio,
             language=lang_code,
             task="transcribe",
-            # beam_size=5 for both — keeps partial/final consistent so the
-            # final can never "disagree" with the streaming text the user
-            # already saw and trusted.
             beam_size=5,
-            # Pin temperature so there's no fallback to higher temps that
-            # can nudge the decoder into a different language.
             temperature=0.0,
             vad_filter=True,
             vad_parameters={"min_silence_duration_ms": 400},
@@ -149,7 +179,16 @@ class VoiceSidecar:
             compression_ratio_threshold=2.4,
             log_prob_threshold=-1.0,
         )
-        return " ".join(s.text for s in segs).strip()
+        text = " ".join(s.text for s in segs).strip()
+
+        # Drop known hallucination phrases. Normalize for comparison:
+        # lowercase + strip trailing punctuation.
+        normalized = text.lower().rstrip(".!?,;:").strip()
+        if normalized in HALLUCINATIONS:
+            if final:
+                log(f"dropped hallucination: {text!r}")
+            return ""
+        return text
 
     def start_listen(self, lang: str = "fr"):
         if self.listening:
