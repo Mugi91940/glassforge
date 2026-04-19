@@ -80,7 +80,7 @@ const DEFAULTS: Persisted = {
   skipDeleteWarning: false,
   smallFastModel: "haiku",
   longContextScope: "none",
-  voiceModel: "distil-large-v3",
+  voiceModel: "large-v3-turbo",
   voiceLang: "fr",
   voiceAutoSpeak: true,
   voiceHudDuration: 4,
@@ -174,16 +174,21 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
         raw && isValidLongContextScope(raw.longContextScope)
           ? raw.longContextScope
           : DEFAULTS.longContextScope;
-      // One-time migration: tiny is too unreliable for French (it silently
-      // emits English even with language="fr"). Anyone still on tiny —
-      // either from the old default or a manual pick — gets bumped to
-      // distil-large-v3, the current recommended balance of speed and
-      // quality. We persist the new value so this only runs once.
+      // Migrations:
+      //  - tiny → large-v3-turbo: tiny hallucinates on silence and is
+      //    too weak for French.
+      //  - distil-large-v3 → large-v3-turbo: distil-large-v3 is an
+      //    English-only model; anyone we previously upgraded to it for
+      //    "quality" was getting silent English output from French
+      //    audio. large-v3-turbo keeps the speed win but retains
+      //    multilingual support.
       const rawModel = raw && isValidVoiceModel(raw.voiceModel)
         ? raw.voiceModel
         : DEFAULTS.voiceModel;
       const voiceModel: VoiceModel =
-        rawModel === "tiny" ? "distil-large-v3" : rawModel;
+        rawModel === "tiny" || rawModel === "distil-large-v3"
+          ? "large-v3-turbo"
+          : rawModel;
       const voiceLang = raw && (raw.voiceLang === "fr" || raw.voiceLang === "en")
         ? raw.voiceLang
         : DEFAULTS.voiceLang;

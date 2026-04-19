@@ -14,14 +14,14 @@ const MODEL_OPTIONS: DropdownOption<VoiceModel>[] = [
   { label: "Small — équilibré", value: "small" },
   { label: "Medium — plus précis, plus lent", value: "medium" },
   {
-    label: "Distil Large v3 — qualité haute, rapide (recommandé)",
-    value: "distil-large-v3",
-  },
-  {
-    label: "Large v3 Turbo — qualité élevée, rapide",
+    label: "Large v3 Turbo — recommandé (multilingue, rapide)",
     value: "large-v3-turbo",
   },
   { label: "Large v3 — qualité maximale, lent sans GPU", value: "large-v3" },
+  {
+    label: "Distil Large v3 — ⚠ ANGLAIS UNIQUEMENT",
+    value: "distil-large-v3",
+  },
 ];
 
 const LANG_OPTIONS: DropdownOption<"fr" | "en">[] = [
@@ -61,9 +61,10 @@ export function VoiceEditor() {
         <div className={styles.rowLabel}>
           Modèle Whisper
           <span className={styles.hint}>
-            La première utilisation de chaque modèle télécharge les poids
-            (~150 Mo pour base, ~1.5 Go pour les Large). Le sidecar utilise
-            le GPU automatiquement si CUDA est disponible.
+            Pour du français, utilisez Large v3 Turbo (multilingue).
+            Distil Large v3 est anglais uniquement — il traduit toute
+            autre langue en anglais. Les modèles Large téléchargent
+            ~1.5 Go à la première utilisation.
           </span>
         </div>
         <div className={styles.rowControl}>
