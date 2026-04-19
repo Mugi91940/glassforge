@@ -111,15 +111,13 @@ class VoiceSidecar:
         """
         Run Whisper on `audio`.
 
-        `final=False` (streaming partial): greedy beam=1 for speed.
-        `final=True` (after stop_listen): beam=5 for accuracy. Same params
-        Whisper was originally tuned against in the paper — partials
-        trade accuracy for latency, the final result doesn't have to.
+        Uses the same decoding params for partials and the final pass so
+        the text the user sees streaming never contradicts the final that
+        lands in the draft. Temperature is pinned to 0 to disable
+        faster-whisper's fallback cascade (0 → 0.2 → 0.4 → ...), which
+        was drifting into English on borderline French segments.
         """
         lang_code = lang if lang in ("fr", "en") else "fr"
-        # Diagnostic log so we can see which language the sidecar actually
-        # received. If you see `lang='en'` here while dictating French,
-        # the frontend (voiceLang pref) is the culprit, not Whisper.
         if final:
             log(
                 f"final transcribe lang={lang_code!r} "
@@ -135,17 +133,18 @@ class VoiceSidecar:
         segs, _ = self.model.transcribe(
             audio,
             language=lang_code,
-            # Force transcription (keep the source language).
             task="transcribe",
-            beam_size=5 if final else 1,
+            # beam_size=5 for both — keeps partial/final consistent so the
+            # final can never "disagree" with the streaming text the user
+            # already saw and trusted.
+            beam_size=5,
+            # Pin temperature so there's no fallback to higher temps that
+            # can nudge the decoder into a different language.
+            temperature=0.0,
             vad_filter=True,
-            # Slightly relaxed VAD so short French syllables at the end of
-            # sentences don't get clipped.
             vad_parameters={"min_silence_duration_ms": 400},
             without_timestamps=True,
             condition_on_previous_text=False,
-            # Reject segments Whisper itself flags as likely hallucinated
-            # (low no-speech confidence or pathological compression ratio).
             no_speech_threshold=0.5,
             compression_ratio_threshold=2.4,
             log_prob_threshold=-1.0,
