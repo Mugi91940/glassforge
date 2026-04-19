@@ -98,18 +98,19 @@ export function VoiceHud() {
     }>("voice://event", ({ payload }) => {
       if (payload.event === "transcript") {
         const text = payload.text ?? "";
+        const p = phaseRef.current;
+        // Ignore transcript events outside the active dictation window.
+        // The final beam=5 pass takes a moment, so a stale transcript can
+        // land after the user has already hit send (phase "processing"/
+        // "speaking"/"idle") — if we don't gate here, it refills the
+        // draft the user thought was cleared.
+        if (p !== "listening" && p !== "editing") return;
         setTranscript(text);
         if (payload.final) {
-          // Only override the draft if the user hasn't started editing
-          // since they hit stop — otherwise we'd clobber their fixes.
           if (!userEditedRef.current) setDraft(text);
-          if (phaseRef.current !== "editing") setPhase("editing");
-        } else {
-          const p = phaseRef.current;
-          if (p === "idle" || p === "listening") {
-            if (!userEditedRef.current) setDraft(text);
-            if (p !== "listening") setPhase("listening");
-          }
+          if (p !== "editing") setPhase("editing");
+        } else if (!userEditedRef.current) {
+          setDraft(text);
         }
       } else if (payload.event === "speak_done") {
         // Don't auto-hide — the user wants the HUD to stay until they
